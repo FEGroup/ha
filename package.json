@@ -1,0 +1,21 @@
+{
+  "name": "ha",
+  "version": "0.1.0",
+  "description": "",
+  "author": "Choi.Leejun",
+  "devDependencies": {
+    "gulp": "~3.8.9",
+    "gulp-browserify": "~0.5.0",
+    "gulp-clean": "~0.3.1",
+    "gulp-concat": "^2.4.3",
+    "gulp-cssmin": "~0.1.6",
+    "gulp-filter": "~1.0.2",
+    "gulp-jshint": "~1.8.6",
+    "gulp-rename": "~1.2.0",
+    "gulp-rimraf": "^0.1.1",
+    "gulp-ruby-sass": "~0.7.1",
+    "gulp-uglify": "~1.0.1",
+    "gulp-webserver": "~0.8.4",
+    "jshint-stylish": "~1.0.0"
+  }
+}
