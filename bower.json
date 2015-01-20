@@ -1,6 +1,21 @@
 {
-  "name": "mool",
+  "name": "ha.js",
   "version": "0.1.0",
+  "description" : "the tempered cutting edge of a blade for javascript",
+  "main" : "dist/ha.min.js",
+  "moduleType" : [
+    "globals"
+  ],
+  "keywords" : [
+    "ha.js",
+    "hajs",
+    "javascript",
+    "library"
+  ],
+  "authors" : [
+  ],
+  "license" : "MIT",
+  
   "ignore": [
     "**/.*",
     "node_modules",
