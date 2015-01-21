@@ -78,23 +78,66 @@
 		 * 하위 클래스가 생성될 때 호출되어야 합니다.
 		 */
 		child.prototype.base = function () {
-			// 상속 당시에 설정된 상위 클래스의 정의들을 잠시 복사해둡니다.
-			var temp = this.__proto__;
-
 			// 상위 클래스의 생성자를 인자 목록과 함께 실행합니다. 이렇게 하는 이유는 상속 당시에 상위 클래스의 정의를 받지만, 정작 인스턴스를 생성할 때에는 인자를 넘기지 못하기 때문입니다.
-			this.__proto__ = new (parent.bind.apply(parent, arguments))();
+			this.__super__ = new (parent.bind.apply(parent, arguments))();
 
-			// 상위 클래스의 인스턴스를 인자와 함께 만든 뒤에는 상속 당시에 부여된 상위 클래스들의 정의를 복사해줍니다.
-			extendFunction(this.__proto__, temp);
-
-			this.__proto__.constructor.apply(this.__proto__, arguments);
+			this.__super__.constructor.apply(this.__super__, arguments);
 		};
 
 		return child;
 	};
 
-	Ha.Event = Ha.inherit(Object, function (type) {
+	/**
+	 * Ha에서 다른 클래스들의 기본 클래스 역할을 합니다.
+	 * @type {*} Ha.Object
+	 */
+	Ha.Object = Ha.inherit(Object, function() {
+		this.base();
 
+		var events = {};
+
+		/**
+		 * 이벤트를 핸들러를 등록합니다.
+		 * @param name 이벤트 타입
+		 * @param handler 이벤트 핸들러
+		 */
+		this.addEventListener = function(name, handler) {
+			if (!events.hasOwnProperty(name)) {
+				events[name] = [];
+			}
+
+			events[name].push(handler);
+		};
+
+		/**
+		 * 이벤트 핸들러를 제거합니다.
+		 * @param name 이벤트 타입
+		 * @param handler 이벤트 핸들러
+		 */
+		this.removeEventListener = function(name, handler) {
+			if (!events.hasOwnProperty(name)) return;
+
+			events[name].splice(events[name].indexOf(handler), 1);
+		};
+
+		/**
+		 * 이벤트를 발생시킵니다.
+		 * @param name 이벤트 타입
+		 * @param args 핸들러로 전달되는 인자
+		 */
+		this.fireEvent = function(name, args) {
+			if (!events.hasOwnProperty(name)) return;
+
+			if (!args || !args.length) {
+				args = [];
+			}
+
+			var eventHandlers = events[name];
+
+			for (var index = 0; index < eventHandlers.length; index++) {
+				eventHandlers[index].apply(null, args);
+			}
+		}
 	});
 
 	/**
@@ -102,11 +145,8 @@
 	 * 서버 측과 주고 받는 데이터 낱개 단위의 정의를 하며, 뷰와도 연동되어 사용자와의 데이터 인터렉션의 개체 역할을 합니다.
 	 * @type {*} Ha.Entity
 	 */
-	Ha.Entity = Ha.inherit(Object, function (schemes, properties) {
-		// Entity의 데이터 스키마 정보로 필수 인자입니다.
-		if (!schemes) {
-			throw '/Ha/ The entity should need owns schemes. Please define schemes for your entity.';
-		}
+	Ha.Entity = Ha.inherit(Ha.Object, function (schemes, properties) {
+		this.base();
 
 		var thisArg = this;
 
@@ -166,14 +206,24 @@
 		 * @param changes 변경 사항 목록
 		 */
 		var dispatchChangedEvent = function(thisArg, changes) {
-			var event = new CustomEvent('changed', changes);
+			var event;
 
-			thisArg.changed(event);
+			// IE에서 'new CustomEvent'를 지원하지 않습니다.
+			// 그래서, 예외 처리하여 문제가 될 경우(즉, IE일 경우) document.createEvent를 사용합니다.
+			try {
+				event = new CustomEvent('changed', {'detail': changes});
+			} catch(e) {
+				event = document.createEvent('CustomEvent');
+
+				event.initCustomEvent('changed', false, true, changes);
+			}
+
+			thisArg.fireEvent('changed', [event]);
 		};
 
 		// 프로퍼티에 대해서 observer를 등록합니다.
 		Object.observe(properties, function(changes) {
-			dispatchChangedEvent(thisArg, refineChanges(changes));
+				dispatchChangedEvent(thisArg, refineChanges(changes));
 		});
 
 		/**
@@ -191,17 +241,24 @@
 		 * 인자가 2개일 경우, 이름에 해당되는 값을 설정합니다.
 		 * 그 외에는 모두 무시됩니다.
 		 */
-		this.set = function () {
+		this.set = function() {
 			if (arguments.length == 1 && typeof arguments[0] == 'object') {
 				Ha.extend(properties, arguments[0]);
 			} else if (arguments.length == 2) {
 				var name = arguments[0];
 				var value = arguments[1];
 
-				if (properties.hasOwnProperty(name)) return;
-
 				properties[name] = value;
 			}
+		};
+
+		/**
+		 * 이름에 해당하는 프로퍼티가 존재하는지 검사합니다.
+		 * @param name 검사할 프로퍼티 이름
+		 * @returns {boolean} 프로퍼티가 존재하면 true
+		 */
+		this.has = function(name) {
+			return properties.hasOwnProperty(name);
 		};
 
 		this.toString = function () {
@@ -215,23 +272,81 @@
 
 	});
 
-	Ha.View = Ha.inherit(Object, function (selector, entity) {
+	Ha.View = Ha.inherit(Ha.Object, function (element) {
+		var __ViewDirectives = ['Event', 'Loop'];
+
+		var __ElementTypes = ['Input', 'Select', 'Textarea'];
+
+		this.base();
+
+		var thisArg = this;
+
 		// 뷰의 상위 뷰입니다.
 		var parent;
 
 		// 뷰의 하위 뷰들입니다.
 		var children;
 
-		var entity = entity;
-		var entityInstance = new entity();
-
-		var viewName = '';
-
 		// 뷰에 포함되는 최상위 HTML 엘리먼트입니다.
-		var entryElement = document.querySelector(selector);
+		var entryElement = element;
 
-		var components = [];
+		var viewName = entryElement.getAttribute('data-ha-view');
+
+		var entity = function buildEntity() {
+			var entityName = entryElement.hasAttribute('data-ha-entity');
+
+			if (!entityName) return;
+
+			var script = document.querySelector('#' + entryElement.getAttribute('data-ha-entity'));
+
+			return new Ha.Entity(JSON.parse(script.innerHTML));
+		}();
+
+		entity.addEventListener('changed', function(e) {
+			console.log(e);
+		});
+
+		var compositions = [];
+
+		var exposers = {
+			'exposeInputCompositions': function() {
+				var inputElements = entryElement.querySelectorAll('input');
+
+				for (var index = 0; index < inputElements.length; index++) {
+					var inputElement = inputElements.item(index);
+					var propertyName = inputElement['name'];
+
+					if (entity.has(propertyName)) {
+						inputElement.addEventListener('keyup', function (e) {
+							entity.set(propertyName, inputElement.value);
+						});
+					}
+				}
+			}
+		};
+
+		(function exposeCompositions() {
+			__ElementTypes.forEach(function(item) {
+				if (!exposers.hasOwnProperty('expose' + item + 'Compositions')) return;
+
+				exposers['expose' + item + 'Compositions'].apply(thisArg);
+			});
+		})();
 	});
+
+	var haViews = [];
+
+	var searchViews = function searchView() {
+		var viewElements = document.querySelectorAll('*[data-ha-view]');
+
+		for (var index = 0; index < viewElements.length; index++) {
+			var viewElement = viewElements.item(index);
+
+			haViews.push(new Ha.View(viewElement));
+		}
+	};
+
+	searchViews();
 
 	return Ha;
 }));

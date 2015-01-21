@@ -7,6 +7,11 @@
 	<meta name="viewport" content="width=device-width" >
 	<meta name="description" content="">
 	<script src="js/Object.observe.poly.js"></script>
+	<script type="application/json" id="testEntity">
+		{
+			"name": "string"
+		}
+	</script>
 </head>
 <body>
 
@@ -14,10 +19,10 @@
 		<h1 style="text-align:center; font:sans-serif 5em;">Ha has been Scaffolded!</h1>
 	</div>
 
-	<div data-ha.view="root-view">
+	<div data-ha-view="root-view" data-ha-entity="testEntity">
 		<span>Here is View in Ha.</span>
-		<input type="text" name="testText" />
-		<span data-ha.inner=""></span>
+		<input type="text" name="name" />
+		<span>My name is {{name}}.</span>
 	</div>
 
 	<script src="js/ha.js"></script>
