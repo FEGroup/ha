@@ -337,7 +337,7 @@
 	var haViews = [];
 
 	var searchViews = function searchView() {
-		var viewElements = document.querySelectorAll('*[data-ha-view]');
+		var viewElements = document.querySelectorAll('[data-ha-view]');
 
 		for (var index = 0; index < viewElements.length; index++) {
 			var viewElement = viewElements.item(index);
