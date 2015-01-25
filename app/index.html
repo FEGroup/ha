@@ -1,7 +1,5 @@
 <!doctype html>
-
 <html>
-
 <head>
 	<title>HA - edge of a blade</title>
 	<meta name="viewport" content="width=device-width" >
@@ -14,18 +12,13 @@
 	</script>
 </head>
 <body>
-
-	<div style="width:50%; margin:auto;">
-		<h1 style="text-align:center; font:sans-serif 5em;">Ha has been Scaffolded!</h1>
-	</div>
-
 	<div data-ha-view="root-view" data-ha-entity="testEntity">
-		<span>Here is View in Ha.</span>
+		<span id="a">Here is View in Ha.<input type="text"/>fkjdjkldj</span>
 		<input type="text" name="name" />
-		<span>My name is {{name}}.</span>
+		<span>My name is {{=name}}. My job is {{=job}}.</span>
+		<!--<span>My name is <span>{{=name}}</span></span>-->
 	</div>
-
-	<script src="js/ha.js"></script>
-	<script src="js/index.js"></script>
 </body>
 </html>
+<script src="js/ha.js"></script>
+<script src="js/index.js"></script>

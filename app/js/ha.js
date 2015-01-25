@@ -9,6 +9,8 @@
 
 	});
 }(this, function() {
+	"use strict";
+
 	var Ha = {};
 
 	Ha.Version = '0.1.0';
@@ -266,16 +268,27 @@
 		};
 	});
 
-	Ha.EntitySet = Ha.inherit(Array, function (entity) {
+	Ha.EntitySet = Ha.inherit(Array, function EntitySet(entity) {
 		var entity = entity;
 
 
 	});
 
-	Ha.View = Ha.inherit(Ha.Object, function (element) {
-		var __ViewDirectives = ['Event', 'Loop'];
+	var TextTemplate = Ha.inherit(Ha.Object, function(node) {
+		var node = node;
+		var original = node.textContent;
 
-		var __ElementTypes = ['Input', 'Select', 'Textarea'];
+		this.getNode = function() {
+			return node;
+		};
+
+		this.getOriginal = function() {
+			return original;
+		};
+	});
+
+	Ha.View = Ha.inherit(Ha.Object, function View(element) {
+		var __ElementTypes = ['Text', 'Input', 'Select', 'Textarea'];
 
 		this.base();
 
@@ -292,6 +305,7 @@
 
 		var viewName = entryElement.getAttribute('data-ha-view');
 
+		// 뷰와 관계되는 entity 객체입니다.
 		var entity = function buildEntity() {
 			var entityName = entryElement.hasAttribute('data-ha-entity');
 
@@ -299,39 +313,74 @@
 
 			var script = document.querySelector('#' + entryElement.getAttribute('data-ha-entity'));
 
+			// TODO Entity JSON을 위한 script를 찾지 못할 경우 어떻게 해야 할까요?
+			if (script) {
+
+			}
+
 			return new Ha.Entity(JSON.parse(script.innerHTML));
 		}();
 
-		entity.addEventListener('changed', function(e) {
-			console.log(e);
-		});
+		var textTemplates = {};
 
-		var compositions = [];
+		(function traverseNodes(parentNode) {
+			for (var index = 0; index < parentNode.childNodes.length; index++) {
+				var node = parentNode.childNodes.item(index);
 
-		var exposers = {
-			'exposeInputCompositions': function() {
-				var inputElements = entryElement.querySelectorAll('input');
+				switch (node.nodeType) {
+					// ELEMENT_NODE
+					case 1:
+						if (node.nodeName === 'INPUT') {
+							var type = (node.attributes.getNamedItem('type') || {}).value;
+							var name = (node.attributes.getNamedItem('name') || {}).value;
 
-				for (var index = 0; index < inputElements.length; index++) {
-					var inputElement = inputElements.item(index);
-					var propertyName = inputElement['name'];
+							if (entity.has(name)) {
+								node.addEventListener('input', function(e) {
+									entity.set('name', e.target.value);
+								});
+							}
+						}
 
-					if (entity.has(propertyName)) {
-						inputElement.addEventListener('keyup', function (e) {
-							entity.set(propertyName, inputElement.value);
+						break;
+
+					// TEXT_NODE
+					case 3:
+						var textContent = node.textContent;
+
+						textContent.replace(/\{\{=([\s\S]+?)\}\}/g, function(matched, substring, offset, original) {
+							if (entity.has(substring)) {
+								if (!textTemplates.hasOwnProperty(substring)) {
+									textTemplates[substring] = [];
+								}
+
+								textTemplates[substring].push(new TextTemplate(node));
+							}
 						});
-					}
+
+						break;
 				}
+
+				traverseNodes(node);
 			}
-		};
+		})(entryElement);
 
-		(function exposeCompositions() {
-			__ElementTypes.forEach(function(item) {
-				if (!exposers.hasOwnProperty('expose' + item + 'Compositions')) return;
+		entity.addEventListener('changed', function(e) {
+			var keys = Object.keys(e.detail);
 
-				exposers['expose' + item + 'Compositions'].apply(thisArg);
-			});
-		})();
+			for (var index = 0; index < keys.length; index++) {
+				var key = keys[index];
+
+				textTemplates[key].forEach(function(textTemplate) {
+					var original = textTemplate.getOriginal();
+
+					textTemplate.getNode().textContent = original.replace(/\{\{=([\s\S]+?)\}\}/g, function(matched, substring) {
+						if (entity.has(substring)) {
+							return entity.get(substring);
+						}
+					});
+				});
+			}
+		});
 	});
 
 	var haViews = [];
