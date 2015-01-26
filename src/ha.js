@@ -155,7 +155,7 @@
 		// 스키마는 프로퍼티 이름과 타입의 쌍으로 이루어져야 합니다.
 		// 타입은 number, string, boolean, object를 지원합니다.
 		// 기본값(빈값)은 각각 0, '', false로 설정됩니다.
-		var schemes = schemes;
+		var schemes = Ha.extend({}, schemes);
 
 		// Entity가 보유하는 스키마 정보에 대한 실제 데이터입니다.
 		// Entity 객체의 다른 프로퍼티들과 섞이면 곤란하므로 따로 보관합니다.
@@ -170,7 +170,7 @@
 
 				switch (schemeType) {
 					case 'array':
-						properties[schemeName] = {};
+						properties[schemeName] = [];
 
 						break;
 					case 'number':
@@ -246,7 +246,7 @@
 			}
 		})(properties);
 
-		var getByPath = function(target, path) {
+		var getByPath = function getByPath(target, path) {
 			var pathParts = path.split('.');
 			var current = target;
 
@@ -269,7 +269,7 @@
 			return getByPath(properties, name);
 		};
 
-		var setByPath = function(target, path, value) {
+		var setByPath = function setByPath(target, path, value) {
 			var pathParts = path.split('.');
 			var current = target;
 
@@ -310,6 +310,15 @@
 		 */
 		this.has = function(name) {
 			return properties.hasOwnProperty(name);
+		};
+
+		/**
+		 * 이름에 해당하는 프로퍼티의 스키마 타입을 가져옵니다.
+		 * @param name 프로퍼티 이름
+		 * @returns {*} 프로퍼티 스키마 타입
+		 */
+		this.getSchemaType = function(name) {
+			return schemes[name];
 		};
 
 		this.toString = function () {
@@ -398,14 +407,10 @@
 
 						case 'checkbox':
 							node.addEventListener('change', function(e) {
-								//if (!entity.get(name) instanceof Array) {
-								//	entity.set(name, []);
-								//}
-
 								if (e.target.checked) {
-									entity.get(name)[e.target.value] = e.target.value;
+									entity.get(name).push(e.target.value);
 								} else {
-									delete entity.get(name)[e.target.value];
+									entity.get(name).pop(e.target.value);
 								}
 							});
 
@@ -465,6 +470,10 @@
 
 					textTemplate.getNode().textContent = original.replace(/\{\{=([\s\S]+?)\}\}/g, function(matched, substring) {
 						if (entity.has(substring)) {
+							if (entity.getSchemaType(substring) === 'array') {
+								return entity.get(substring).join(',');
+							}
+
 							return entity.get(substring);
 						}
 					});
