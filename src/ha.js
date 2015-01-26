@@ -194,13 +194,15 @@
 		 * 변경된 프로퍼티 목록에서 중복되는 프로퍼티들을 걸러내어 최종 결과만을 얻습니다.
 		 * @param changes observe에 의해 감지된 변경 사항 목록
 		 */
-		var refineChanges = function refineChanges(changes) {
+		var refineChanges = function refineChanges(changes, path) {
 			var c = {};
 
 			for (var index = 0; index < changes.length; index++) {
 				var change = changes[index];
 
-				c[change.name] = properties[change.name];
+				var propPath = (path == undefined ? '' : path + '.') + change.name;
+
+				setByPath(c, propPath, getByPath(properties, propPath));
 			}
 
 			return c;
@@ -232,25 +234,56 @@
 		//	dispatchChangedEvent(thisArg, refineChanges(changes));
 		//});
 
-		(function observing(target) {
+		(function observing(target, path) {
 			if (typeof target !== 'object') return;
 
 			Object.observe(target, function(changes) {
-				dispatchChangedEvent(thisArg, refineChanges(changes));
+				dispatchChangedEvent(thisArg, refineChanges(changes, path));
 			});
 
 			for (var prop in target) {
-				observing(target[prop]);
+				observing(target[prop], (path == undefined ? '' : path + '.') + prop);
 			}
 		})(properties);
 
+		var getByPath = function(target, path) {
+			var pathParts = path.split('.');
+			var current = target;
+
+			for (var index = 0; index < pathParts.length; index++) {
+				var part = pathParts[index];
+
+				if (current[part] == undefined) return undefined;
+				else current = current[part];
+			}
+
+			return current;
+		};
+
 		/**
 		 * 프로퍼티 이름에 해당하는 데이터 값을 가져옵니다.
-		 * @param name 프로퍼티 이름
+		 * @param name 프로퍼티 이름(혹은 경로)
 		 * @returns {*} 데이터 값 혹은 객체, 없으면 undefined
 		 */
-		this.get = function (name) {
-			return properties[name];
+		this.get = function(name) {
+			return getByPath(properties, name);
+		};
+
+		var setByPath = function(target, path, value) {
+			var pathParts = path.split('.');
+			var current = target;
+
+			for (var index = 0; index < pathParts.length; index++) {
+				var part = pathParts[index];
+
+				if (pathParts.length == index + 1) {
+					current[part] = value;
+				} else {
+					current[part] = {};
+
+					current = current[part];
+				}
+			}
 		};
 
 		/**
