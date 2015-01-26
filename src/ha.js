@@ -81,7 +81,7 @@
 		 */
 		child.prototype.base = function () {
 			// 상위 클래스의 생성자를 인자 목록과 함께 실행합니다. 이렇게 하는 이유는 상속 당시에 상위 클래스의 정의를 받지만, 정작 인스턴스를 생성할 때에는 인자를 넘기지 못하기 때문입니다.
-			this.__super__ = new (parent.bind.apply(parent, arguments))();
+			this.__super__ = new (Function.prototype.bind.apply(parent, arguments))();
 
 			this.__super__.constructor.apply(this.__super__, arguments);
 		};
@@ -169,6 +169,10 @@
 				var schemeType = schemes[schemeName];
 
 				switch (schemeType) {
+					case 'array':
+						properties[schemeName] = {};
+
+						break;
 					case 'number':
 						properties[schemeName] = 0;
 
@@ -224,9 +228,21 @@
 		};
 
 		// 프로퍼티에 대해서 observer를 등록합니다.
-		Object.observe(properties, function(changes) {
+		//Object.observe(properties, function(changes) {
+		//	dispatchChangedEvent(thisArg, refineChanges(changes));
+		//});
+
+		(function observing(target) {
+			if (typeof target !== 'object') return;
+
+			Object.observe(target, function(changes) {
 				dispatchChangedEvent(thisArg, refineChanges(changes));
-		});
+			});
+
+			for (var prop in target) {
+				observing(target[prop]);
+			}
+		})(properties);
 
 		/**
 		 * 프로퍼티 이름에 해당하는 데이터 값을 가져옵니다.
@@ -288,8 +304,6 @@
 	});
 
 	Ha.View = Ha.inherit(Ha.Object, function View(element) {
-		var __ElementTypes = ['Text', 'Input', 'Select', 'Textarea'];
-
 		this.base();
 
 		var thisArg = this;
@@ -323,6 +337,55 @@
 
 		var textTemplates = {};
 
+		var a = function(node) {
+			if (node.nodeName === 'INPUT') {
+				var type = (node.attributes.getNamedItem('type') || {}).value;
+				var name = (node.attributes.getNamedItem('name') || {}).value;
+
+				console.log(type);
+				console.log(name);
+
+				// TODO input element의 type별로 구분하여 이벤트 등을 처리해야 합니다.
+
+				if (entity.has(name)) {
+					switch (type) {
+						case 'text':
+							node.addEventListener('input', function (e) {
+								entity.set(name, e.target.value);
+							});
+
+							break;
+
+						case 'radio':
+							node.addEventListener('click', function(e) {
+								entity.set(name, e.target.value);
+							});
+
+							break;
+
+						case 'checkbox':
+							node.addEventListener('change', function(e) {
+								//if (!entity.get(name) instanceof Array) {
+								//	entity.set(name, []);
+								//}
+
+								if (e.target.checked) {
+									entity.get(name)[e.target.value] = e.target.value;
+								} else {
+									delete entity.get(name)[e.target.value];
+								}
+							});
+
+							break;
+					}
+				}
+			} else if (node.nodeName === 'SELECT') {
+
+			} else if (node.nodeName === 'TEXTAREA') {
+
+			}
+		};
+
 		(function traverseNodes(parentNode) {
 			for (var index = 0; index < parentNode.childNodes.length; index++) {
 				var node = parentNode.childNodes.item(index);
@@ -330,16 +393,9 @@
 				switch (node.nodeType) {
 					// ELEMENT_NODE
 					case 1:
-						if (node.nodeName === 'INPUT') {
-							var type = (node.attributes.getNamedItem('type') || {}).value;
-							var name = (node.attributes.getNamedItem('name') || {}).value;
+						// TODO 엘리먼트 노드들을 선회하면서 directive를 찾아내야 합니다. directive 정의도 필요하겠죠?
 
-							if (entity.has(name)) {
-								node.addEventListener('input', function(e) {
-									entity.set('name', e.target.value);
-								});
-							}
-						}
+						a(node);
 
 						break;
 
@@ -347,6 +403,7 @@
 					case 3:
 						var textContent = node.textContent;
 
+						// Interpolation
 						textContent.replace(/\{\{=([\s\S]+?)\}\}/g, function(matched, substring, offset, original) {
 							if (entity.has(substring)) {
 								if (!textTemplates.hasOwnProperty(substring)) {
