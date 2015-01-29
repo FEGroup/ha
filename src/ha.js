@@ -385,6 +385,26 @@
 					entity.set(inputField.name, inputField.value);
 				});
 			});
+
+			var selectFields = entryElement.querySelectorAll('select');
+
+			Array.prototype.forEach.call(selectFields, function(selectField) {
+				selectField.addEventListener('input', function (e) {
+					if (!entity.has(selectField.name)) return;
+
+					entity.set(selectField.name, selectField.value);
+				});
+			});
+
+			var textAreaFields = entryElement.querySelectorAll('textarea');
+
+			Array.prototype.forEach.call(textAreaFields, function(textareaField) {
+				textareaField.addEventListener('input', function(e) {
+					if (!entity.has(textareaField.name)) return;
+
+					entity.set(textareaField.name, textareaField.value);
+				});
+			});
 		})();
 
 		/**
@@ -472,6 +492,13 @@
 							}
 
 							break;
+
+						case 'html':
+							if (!entity.has(directiveBody)) return;
+
+							element.innerHTML = entity.get(directiveBody);
+
+							break;
 					}
 				}
 			});
@@ -502,6 +529,7 @@
 		entity.set('css', 'fake');
 		entity.set('backgroundColor', 'red');
 		entity.set('fontSize', '50px');
+		entity.set('htmlString', '<h1>HTML String</h1>');
 	});
 
 	var haViews = {};

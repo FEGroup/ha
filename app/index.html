@@ -19,7 +19,9 @@
 			"align": "string",
 			"id": "string",
 			"backgroudColor": "string",
-			"fontSize": "string"
+			"fontSize": "string",
+			"htmlString": "string",
+			"description": "string"
 		}
 	</script>
 </head>
@@ -29,10 +31,18 @@
 		<input type="text" name="name" />
 		<div>
 			<span data-text="{{name}}"></span>
+			<span data-text="{{gender}}"></span>
+			<span data-text="{{description}}"></span>
 		</div>
 		<div data-directive="attr:{align: align, id: id}, css:css, style:{background-color:backgroundColor, font-size:fontSize}">If Enabled?</div>
 		<div data-directive="if:enabled">If Enabled?</div>
-		<!--<div data-directive="ifnot:enabled">If not Enabled?</div>-->
+		<div data-directive="ifnot:enabled">If not Enabled?</div>
+		<div data-directive="html:htmlString">Html String</div>
+		<select name="gender">
+			<option value="0">M</option>
+			<option value="1">W</option>
+		</select>
+		<textarea name="description" rows="10"></textarea>
 		<!--<div data-directive="style:style">Style?</div>-->
 		<!--<div data-directive="css:css">CSS?</div>-->
 		<!--<div data-directive="attr:attribute">Attribute?</div>-->
