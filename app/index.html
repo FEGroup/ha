@@ -4,34 +4,58 @@
 	<title>HA - edge of a blade</title>
 	<meta name="viewport" content="width=device-width" >
 	<meta name="description" content="">
-	<script src="js/Object.observe.poly.js"></script>
-	<script type="application/json" id="testEntity">
+	<script type="application/json" id="entity">
 		{
 			"name": "string",
+			"nickName": {
+				"type": "string",
+				"defaultValue": ""
+			},
 			"gender": "number",
-			"hobby": "array"
+			"hobby": "array",
+			"enabled": "boolean",
+			"style": "string",
+			"css": "string",
+			"align": "string",
+			"id": "string",
+			"backgroudColor": "string",
+			"fontSize": "string"
 		}
 	</script>
 </head>
 <body>
-	<div data-ha-view="root-view" data-ha-entity="testEntity">
-		<span id="a">Here is View in Ha.</span>
+	<div data-view="root-view" data-entity="entity">
+		<span>Here is View in Ha.</span>
 		<input type="text" name="name" />
-		<span>My name is {{=name}}. My job is {{=job}}. Encoding is {{#url}}</span>
-		<!-- Iterating -->
-		<label><input type="radio" name="gender" value="1"/> M</label>
-		<label><input type="radio" name="gender" value="2"/> W</label>
-		<span>Gender: {{=gender}}</span>
-		<label><input type="checkbox" name="hobby" value="1"/>Reading the book</label>
-		<label><input type="checkbox" name="hobby" value="2"/>Watching the movie</label>
-		<label><input type="checkbox" name="hobby" value="3"/>Shopping</label>
-		<label><input type="checkbox" name="hobby" value="4"/>Drinking</label>
-		<span>Hobby: {{=hobby}}</span>
-		<div data-ha-iterator="user in users">
-			<div></div>
+		<div>
+			<span data-text="{{name}}"></span>
 		</div>
+		<div data-directive="attr:{align: align, id: id}, css:css, style:{background-color:backgroundColor, font-size:fontSize}">If Enabled?</div>
+		<div data-directive="if:enabled">If Enabled?</div>
+		<!--<div data-directive="ifnot:enabled">If not Enabled?</div>-->
+		<!--<div data-directive="style:style">Style?</div>-->
+		<!--<div data-directive="css:css">CSS?</div>-->
+		<!--<div data-directive="attr:attribute">Attribute?</div>-->
+
+		<!--<span>My name is {{=name}}. My job is {{=job}}. Encoding is {{#url}}</span>-->
+		<!--<label><input type="radio" name="gender" value="1"/> M</label>-->
+		<!--<label><input type="radio" name="gender" value="2"/> W</label>-->
+		<!--<span>Gender: {{=gender}}</span>-->
+		<!--<label><input type="checkbox" name="hobby" value="1"/>Reading the book</label>-->
+		<!--<label><input type="checkbox" name="hobby" value="2"/>Watching the movie</label>-->
+		<!--<label><input type="checkbox" name="hobby" value="3"/>Shopping</label>-->
+		<!--<label><input type="checkbox" name="hobby" value="4"/>Drinking</label>-->
+		<!--<span>Hobby: {{=hobby}}</span>-->
+		<!--<div data-bind="foreach:{{users}} => user">&lt;!&ndash; foreach &ndash;&gt;-->
+			<!--<div data-text="{{user.name}}">Marry</div>-->
+			<!--<div data-text="{{job}}">Student</div>-->
+			<!--<div data-text="foreach:{{hobby}}"></div>-->
+		<!--</div>-->
+		<!--</div>&lt;!&ndash; If &ndash;&gt;-->
+
 	</div>
 </body>
 </html>
+<script src="js/Object.observe.poly.js"></script>
 <script src="js/ha.js"></script>
 <script src="js/index.js"></script>

@@ -1,14 +1,16 @@
 /**
-* ha(刃, edge) - the tempered cutting edge of a blade. The side opposite the mune. Also called hasaki (刃先).
-*/
+ * ha(刃, edge) - the tempered cutting edge of a blade. The side opposite the mune. Also called hasaki (刃先).
+ */
 
-(function(platform, entry) {
+(function (platform, entry) {
 	platform.Ha = entry();
 
 	document.addEventListener('DOMContentLoaded', function () {
+		var a = document.querySelectorAll('[data-view]');
 
+		console.log(a);
 	});
-}(this, function() {
+}(this, function () {
 	"use strict";
 
 	var Ha = {};
@@ -93,7 +95,7 @@
 	 * Ha에서 다른 클래스들의 기본 클래스 역할을 합니다.
 	 * @type {*} Ha.Object
 	 */
-	Ha.Object = Ha.inherit(Object, function() {
+	Ha.Object = Ha.inherit(Object, function () {
 		this.base();
 
 		var events = {};
@@ -103,7 +105,7 @@
 		 * @param name 이벤트 타입
 		 * @param handler 이벤트 핸들러
 		 */
-		this.addEventListener = function(name, handler) {
+		this.addEventListener = function (name, handler) {
 			if (!events.hasOwnProperty(name)) {
 				events[name] = [];
 			}
@@ -116,7 +118,7 @@
 		 * @param name 이벤트 타입
 		 * @param handler 이벤트 핸들러
 		 */
-		this.removeEventListener = function(name, handler) {
+		this.removeEventListener = function (name, handler) {
 			if (!events.hasOwnProperty(name)) return;
 
 			events[name].splice(events[name].indexOf(handler), 1);
@@ -127,7 +129,7 @@
 		 * @param name 이벤트 타입
 		 * @param args 핸들러로 전달되는 인자
 		 */
-		this.fireEvent = function(name, args) {
+		this.fireEvent = function (name, args) {
 			if (!events.hasOwnProperty(name)) return;
 
 			if (!args || !args.length) {
@@ -213,14 +215,14 @@
 		 * @param thisArg Entity 인스턴스
 		 * @param changes 변경 사항 목록
 		 */
-		var dispatchChangedEvent = function(thisArg, changes) {
+		var dispatchChangedEvent = function (thisArg, changes) {
 			var event;
 
 			// IE에서 'new CustomEvent'를 지원하지 않습니다.
 			// 그래서, 예외 처리하여 문제가 될 경우(즉, IE일 경우) document.createEvent를 사용합니다.
 			try {
 				event = new CustomEvent('changed', {'detail': changes});
-			} catch(e) {
+			} catch (e) {
 				event = document.createEvent('CustomEvent');
 
 				event.initCustomEvent('changed', false, true, changes);
@@ -229,15 +231,10 @@
 			thisArg.fireEvent('changed', [event]);
 		};
 
-		// 프로퍼티에 대해서 observer를 등록합니다.
-		//Object.observe(properties, function(changes) {
-		//	dispatchChangedEvent(thisArg, refineChanges(changes));
-		//});
-
 		(function observing(target, path) {
 			if (typeof target !== 'object') return;
 
-			Object.observe(target, function(changes) {
+			Object.observe(target, function (changes) {
 				dispatchChangedEvent(thisArg, refineChanges(changes, path));
 			});
 
@@ -245,6 +242,16 @@
 				observing(target[prop], (path == undefined ? '' : path + '.') + prop);
 			}
 		})(properties);
+
+		this.getSchemeNames = function getSchemeNames() {
+			var schemeNames = [];
+
+			for (var key in schemes) {
+				schemeNames.push(key);
+			}
+
+			return schemeNames;
+		};
 
 		var getByPath = function getByPath(target, path) {
 			var pathParts = path.split('.');
@@ -265,7 +272,7 @@
 		 * @param name 프로퍼티 이름(혹은 경로)
 		 * @returns {*} 데이터 값 혹은 객체, 없으면 undefined
 		 */
-		this.get = function(name) {
+		this.get = function (name) {
 			return getByPath(properties, name);
 		};
 
@@ -292,7 +299,7 @@
 		 * 인자가 2개일 경우, 이름에 해당되는 값을 설정합니다.
 		 * 그 외에는 모두 무시됩니다.
 		 */
-		this.set = function() {
+		this.set = function () {
 			if (arguments.length == 1 && typeof arguments[0] == 'object') {
 				Ha.extend(properties, arguments[0]);
 			} else if (arguments.length == 2) {
@@ -308,7 +315,7 @@
 		 * @param name 검사할 프로퍼티 이름
 		 * @returns {boolean} 프로퍼티가 존재하면 true
 		 */
-		this.has = function(name) {
+		this.has = function (name) {
 			return properties.hasOwnProperty(name);
 		};
 
@@ -317,9 +324,13 @@
 		 * @param name 프로퍼티 이름
 		 * @returns {*} 프로퍼티 스키마 타입
 		 */
-		this.getSchemaType = function(name) {
+		this.getSchemaType = function (name) {
 			return schemes[name];
 		};
+
+		this.changed = function (func) {
+			this.addEventListener('changed', func);
+		}
 
 		this.toString = function () {
 			return JSON.stringify(this.properties);
@@ -330,19 +341,6 @@
 		var entity = entity;
 
 
-	});
-
-	var TextTemplate = Ha.inherit(Ha.Object, function(node) {
-		var node = node;
-		var original = node.textContent;
-
-		this.getNode = function() {
-			return node;
-		};
-
-		this.getOriginal = function() {
-			return original;
-		};
 	});
 
 	Ha.View = Ha.inherit(Ha.Object, function View(element) {
@@ -359,15 +357,15 @@
 		// 뷰에 포함되는 최상위 HTML 엘리먼트입니다.
 		var entryElement = element;
 
-		var viewName = entryElement.getAttribute('data-ha-view');
+		this.viewName = entryElement.getAttribute('data-view');
 
 		// 뷰와 관계되는 entity 객체입니다.
 		var entity = function buildEntity() {
-			var entityName = entryElement.hasAttribute('data-ha-entity');
+			var entityName = entryElement.hasAttribute('data-entity');
 
 			if (!entityName) return;
 
-			var script = document.querySelector('#' + entryElement.getAttribute('data-ha-entity'));
+			var script = document.querySelector('#' + entryElement.getAttribute('data-entity'));
 
 			// TODO Entity JSON을 위한 script를 찾지 못할 경우 어떻게 해야 할까요?
 			if (script) {
@@ -377,124 +375,152 @@
 			return new Ha.Entity(JSON.parse(script.innerHTML));
 		}();
 
-		var textTemplates = {};
+		(function watchFormFields() {
+			var inputFields = entryElement.querySelectorAll('input');
 
-		var a = function(node) {
-			if (node.nodeName === 'INPUT') {
-				var type = (node.attributes.getNamedItem('type') || {}).value;
-				var name = (node.attributes.getNamedItem('name') || {}).value;
+			Array.prototype.forEach.call(inputFields, function(inputField) {
+				inputField.addEventListener('input', function(e) {
+					if (!entity.has(inputField.name)) return;
 
-				console.log(type);
-				console.log(name);
+					entity.set(inputField.name, inputField.value);
+				});
+			});
+		})();
 
-				// TODO input element의 type별로 구분하여 이벤트 등을 처리해야 합니다.
+		/**
+		 * 텍스트 엘리먼트를 엔티티에 맞게 렌더링합니다.
+		 * @param key 엔티티 프로퍼티 키
+		 */
+		function renderTextElements(key) {
+			var textElements = entryElement.querySelectorAll('[data-text$="{{' + key + '}}"]');
 
-				if (entity.has(name)) {
-					switch (type) {
-						case 'text':
-							node.addEventListener('input', function (e) {
-								entity.set(name, e.target.value);
-							});
+			Array.prototype.forEach.call(textElements, function (element) {
+				var dataTextAttr = element.getAttribute('data-text');
+
+				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)\}\}/g, function (matched, substring) {
+					if (!entity.has(substring)) return;
+
+					return entity.get(substring);
+				});
+			});
+		}
+
+		/**
+		 * 디렉티브 엘리먼트를 엔티티에 맞게 렌더링합니다.
+		 * @param key 엔티티 프로퍼티 키
+		 */
+		function renderDirectiveElements(key) {
+			var directiveElements = entryElement.querySelectorAll('[data-directive*="' + key + '"]');
+
+			Array.prototype.forEach.call(directiveElements, function (element) {
+				var dataDirectiveAttr = element.getAttribute('data-directive').replace(/[a-z|A-Z|0-9|-]+/g, '"$&"');
+
+				dataDirectiveAttr = '{' + dataDirectiveAttr + '}';
+
+				var directiveObject = JSON.parse(dataDirectiveAttr);
+
+				for (var directiveType in directiveObject) {
+					var directiveBody = directiveObject[directiveType];
+					var propertyName;
+
+					switch (directiveType) {
+						case 'if':
+							if (!entity.has(directiveBody)) return;
+
+							element.style.display = entity.get(directiveBody) ? 'block' : 'none';
 
 							break;
 
-						case 'radio':
-							node.addEventListener('click', function(e) {
-								entity.set(name, e.target.value);
-							});
+						case 'ifnot':
+							if (!entity.has(directiveBody)) return;
+
+							element.style.display = entity.get(directiveBody) ? 'none' : 'block';
 
 							break;
 
-						case 'checkbox':
-							node.addEventListener('change', function(e) {
-								if (e.target.checked) {
-									entity.get(name).push(e.target.value);
-								} else {
-									entity.get(name).pop(e.target.value);
+						case 'style':
+							for (var styleName in directiveBody) {
+								propertyName = directiveBody[styleName];
+
+								if (!entity.has(propertyName)) continue;
+
+								element.style[styleName] = entity.get(propertyName);
+							}
+
+							break;
+
+						case 'css':
+							if (!(directiveBody instanceof Array)) {
+								directiveBody = [directiveBody];
+							}
+
+							directiveBody.forEach(function(item) {
+								if (!element.classList.contains(item)) {
+									element.classList.add(item);
 								}
 							});
+
+							break;
+
+						case 'attr':
+							for (var attributeName in directiveBody) {
+								propertyName = directiveBody[attributeName];
+
+								if (!entity.has(propertyName)) continue;
+
+								element.setAttribute(attributeName, entity.get(propertyName));
+							}
 
 							break;
 					}
 				}
-			} else if (node.nodeName === 'SELECT') {
+			});
+		}
 
-			} else if (node.nodeName === 'TEXTAREA') {
+		function changeFieldValue(key) {
+			var formFields = entryElement.querySelectorAll('[name="' + key + '"]');
 
-			}
-		};
+			Array.prototype.forEach.call(formFields, function(formField) {
+				formField.value = entity.get(key);
+			});
+		}
 
-		(function traverseNodes(parentNode) {
-			for (var index = 0; index < parentNode.childNodes.length; index++) {
-				var node = parentNode.childNodes.item(index);
+		entity.changed(function (e) {
+			var schemeNames = entity.getSchemeNames();
 
-				switch (node.nodeType) {
-					// ELEMENT_NODE
-					case 1:
-						// TODO 엘리먼트 노드들을 선회하면서 directive를 찾아내야 합니다. directive 정의도 필요하겠죠?
-
-						a(node);
-
-						break;
-
-					// TEXT_NODE
-					case 3:
-						var textContent = node.textContent;
-
-						// Interpolation
-						textContent.replace(/\{\{=([\s\S]+?)\}\}/g, function(matched, substring, offset, original) {
-							if (entity.has(substring)) {
-								if (!textTemplates.hasOwnProperty(substring)) {
-									textTemplates[substring] = [];
-								}
-
-								textTemplates[substring].push(new TextTemplate(node));
-							}
-						});
-
-						break;
-				}
-
-				traverseNodes(node);
-			}
-		})(entryElement);
-
-		entity.addEventListener('changed', function(e) {
-			var keys = Object.keys(e.detail);
-
-			for (var index = 0; index < keys.length; index++) {
-				var key = keys[index];
-
-				textTemplates[key].forEach(function(textTemplate) {
-					var original = textTemplate.getOriginal();
-
-					textTemplate.getNode().textContent = original.replace(/\{\{=([\s\S]+?)\}\}/g, function(matched, substring) {
-						if (entity.has(substring)) {
-							if (entity.getSchemaType(substring) === 'array') {
-								return entity.get(substring).join(',');
-							}
-
-							return entity.get(substring);
-						}
-					});
-				});
-			}
+			schemeNames.forEach(function (key) {
+				renderTextElements(key);
+				renderDirectiveElements(key);
+				changeFieldValue(key);
+			});
 		});
+
+		entity.set('name', 'alice');
+		entity.set('enabled', false);
+		entity.set('align', 'center');
+		entity.set('id', 'real');
+		entity.set('css', 'fake');
+		entity.set('backgroundColor', 'red');
+		entity.set('fontSize', '50px');
 	});
 
-	var haViews = [];
+	var haViews = {};
 
-	var searchViews = function searchView() {
-		var viewElements = document.querySelectorAll('[data-ha-view]');
+	(function searchView() {
+		var viewElements = document.querySelectorAll('[data-view]');
 
 		for (var index = 0; index < viewElements.length; index++) {
 			var viewElement = viewElements.item(index);
 
-			haViews.push(new Ha.View(viewElement));
-		}
-	};
+			var view = new Ha.View(viewElement);
 
-	searchViews();
+			haViews[view.viewName] = view;
+		}
+	})();
+
+	Ha.getView = function (name) {
+		return haViews[name];
+	};
 
 	return Ha;
 }));
