@@ -21,13 +21,14 @@
 			"backgroudColor": "string",
 			"fontSize": "string",
 			"htmlString": "string",
-			"description": "string"
+			"description": "string",
+			"race": "number"
 		}
 	</script>
 </head>
 <body>
 	<div data-view="root-view" data-entity="entity">
-		<span>Here is View in Ha.</span>
+		<span data-event="click: add, mouseover: mover">Here is View in Ha.</span>
 		<input type="text" name="name" />
 		<div>
 			<span data-text="{{name}}"></span>
@@ -42,27 +43,18 @@
 			<option value="0">M</option>
 			<option value="1">W</option>
 		</select>
+		<label><input type="radio" name="gender" value="0">M</label>
+		<label><input type="radio" name="gender" value="1">W</label>
+		<span data-text="{{race}}"></span>
+		<label><input type="radio" name="race" value="0">Whites</label>
+		<label><input type="radio" name="race" value="1">Blacks</label>
+		<label><input type="radio" name="race" value="2">Yellows</label>
+		<span data-text="{{hobby}}"></span>
+		<label><input type="checkbox" name="hobby" value="0">A</label>
+		<label><input type="checkbox" name="hobby" value="1">B</label>
+		<label><input type="checkbox" name="hobby" value="2">C</label>
+		<label><input type="checkbox" name="hobby" value="3">D</label>
 		<textarea name="description" rows="10"></textarea>
-		<!--<div data-directive="style:style">Style?</div>-->
-		<!--<div data-directive="css:css">CSS?</div>-->
-		<!--<div data-directive="attr:attribute">Attribute?</div>-->
-
-		<!--<span>My name is {{=name}}. My job is {{=job}}. Encoding is {{#url}}</span>-->
-		<!--<label><input type="radio" name="gender" value="1"/> M</label>-->
-		<!--<label><input type="radio" name="gender" value="2"/> W</label>-->
-		<!--<span>Gender: {{=gender}}</span>-->
-		<!--<label><input type="checkbox" name="hobby" value="1"/>Reading the book</label>-->
-		<!--<label><input type="checkbox" name="hobby" value="2"/>Watching the movie</label>-->
-		<!--<label><input type="checkbox" name="hobby" value="3"/>Shopping</label>-->
-		<!--<label><input type="checkbox" name="hobby" value="4"/>Drinking</label>-->
-		<!--<span>Hobby: {{=hobby}}</span>-->
-		<!--<div data-bind="foreach:{{users}} => user">&lt;!&ndash; foreach &ndash;&gt;-->
-			<!--<div data-text="{{user.name}}">Marry</div>-->
-			<!--<div data-text="{{job}}">Student</div>-->
-			<!--<div data-text="foreach:{{hobby}}"></div>-->
-		<!--</div>-->
-		<!--</div>&lt;!&ndash; If &ndash;&gt;-->
-
 	</div>
 </body>
 </html>

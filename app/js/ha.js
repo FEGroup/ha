@@ -4,12 +4,6 @@
 
 (function (platform, entry) {
 	platform.Ha = entry();
-
-	document.addEventListener('DOMContentLoaded', function () {
-		var a = document.querySelectorAll('[data-view]');
-
-		console.log(a);
-	});
 }(this, function () {
 	"use strict";
 
@@ -343,7 +337,7 @@
 
 	});
 
-	Ha.View = Ha.inherit(Ha.Object, function View(element) {
+	Ha.View = Ha.inherit(Ha.Object, function View(viewName, controller) {
 		this.base();
 
 		var thisArg = this;
@@ -354,10 +348,18 @@
 		// 뷰의 하위 뷰들입니다.
 		var children;
 
-		// 뷰에 포함되는 최상위 HTML 엘리먼트입니다.
-		var entryElement = element;
+		this.viewName = viewName;
 
-		this.viewName = entryElement.getAttribute('data-view');
+		// 뷰에 포함되는 최상위 HTML 엘리먼트입니다.
+		var entryElement = document.querySelector('[data-view="' + viewName + '"]');
+
+		if (!entryElement) {
+			console.error('View \'{}\' is not exist.', viewName);
+
+			return false;
+		}
+
+		var controller = controller;
 
 		// 뷰와 관계되는 entity 객체입니다.
 		var entity = function buildEntity() {
@@ -375,15 +377,72 @@
 			return new Ha.Entity(JSON.parse(script.innerHTML));
 		}();
 
+		(function watchEvents() {
+			var eventElements = entryElement.querySelectorAll('[data-event]');
+
+			Array.prototype.forEach.call(eventElements, function(element) {
+				var dataEventAttr = element.getAttribute('data-event').replace(/[a-z|A-Z|0-9|-]+/g, '"$&"');
+
+				dataEventAttr = '{' + dataEventAttr + '}';
+
+				var dataEventObject = JSON.parse(dataEventAttr);
+
+				for (var eventType in dataEventObject) {
+					var eventFuncName = dataEventObject[eventType];
+
+					var eventFunc = controller[eventFuncName];
+
+					if (!eventFunc || typeof eventFunc !== 'function') return;
+
+					element.addEventListener(eventType, function(e) {
+						eventFunc.call(element, e);
+					}, false);
+				}
+			});
+		})();
+
+		/**
+		 * 폼 필드로부터 엔티티 프로퍼티를 연결합니다.
+		 */
 		(function watchFormFields() {
 			var inputFields = entryElement.querySelectorAll('input');
 
 			Array.prototype.forEach.call(inputFields, function(inputField) {
-				inputField.addEventListener('input', function(e) {
-					if (!entity.has(inputField.name)) return;
+				if (!entity.has(inputField.name)) return;
 
-					entity.set(inputField.name, inputField.value);
-				});
+				switch (inputField.type) {
+					case 'text':
+						inputField.addEventListener('input', function(e) {
+							entity.set(inputField.name, inputField.value);
+						});
+
+						break;
+
+					case 'radio':
+						inputField.addEventListener('click', function(e) {
+							entity.set(inputField.name, inputField.value);
+						});
+
+						break;
+
+					case 'checkbox':
+						inputField.addEventListener('click', function(e) {
+							var values = entity.get(inputField.name);
+
+							if (!(values instanceof Array)) {
+								values = [];
+								entity.set(inputField.name, values);
+							}
+
+							if (inputField.checked) {
+								values.push(inputField.value);
+							} else {
+								values.pop(inputField.value);
+							}
+						});
+
+						break;
+				}
 			});
 
 			var selectFields = entryElement.querySelectorAll('select');
@@ -504,14 +563,42 @@
 			});
 		}
 
+		/**
+		 * 엔티티에서 변경된 값을 폼 필드에 반영합니다.
+		 * @param key 엔티티 프로퍼티 키
+		 */
 		function changeFieldValue(key) {
 			var formFields = entryElement.querySelectorAll('[name="' + key + '"]');
 
 			Array.prototype.forEach.call(formFields, function(formField) {
-				formField.value = entity.get(key);
+				switch (formField.type) {
+					case 'radio':
+						if (formField.value === entity.get(key)) {
+							formField.checked = true;
+						}
+
+						break;
+
+					case 'checkbox':
+						var values = entity.get(key);
+
+						if (!(values instanceof Array)) return;
+
+						formField.checked = values.contains(formField.value);
+
+						break;
+
+					default :
+						formField.value = entity.get(key);
+
+						break;
+				}
 			});
 		}
 
+		/**
+		 * 엔티티의 속성 값이 변경됐을 때 발생합니다.
+		 */
 		entity.changed(function (e) {
 			var schemeNames = entity.getSchemeNames();
 
@@ -532,22 +619,12 @@
 		entity.set('htmlString', '<h1>HTML String</h1>');
 	});
 
-	var haViews = {};
+	Ha.Controller = Ha.inherit(Ha.Object, function Controller(controls) {
+		Ha.extend(this.__proto__, controls);
+	});
 
-	(function searchView() {
-		var viewElements = document.querySelectorAll('[data-view]');
-
-		for (var index = 0; index < viewElements.length; index++) {
-			var viewElement = viewElements.item(index);
-
-			var view = new Ha.View(viewElement);
-
-			haViews[view.viewName] = view;
-		}
-	})();
-
-	Ha.getView = function (name) {
-		return haViews[name];
+	Ha.smith = function(viewName, controls) {
+		return new Ha.View(viewName, new Ha.Controller(controls));
 	};
 
 	return Ha;
