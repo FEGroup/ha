@@ -1,7 +1,6 @@
 /**
  * ha(刃, edge) - the tempered cutting edge of a blade. The side opposite the mune. Also called hasaki (刃先).
  */
-
 (function (platform, entry) {
 	platform.Ha = entry();
 }(this, function () {
@@ -139,8 +138,8 @@
 	});
 
 	/**
-	 * Ha에서 말하는 Entity란 데이터 스키마를 말합니다.
-	 * 서버 측과 주고 받는 데이터 낱개 단위의 정의를 하며, 뷰와도 연동되어 사용자와의 데이터 인터렉션의 개체 역할을 합니다.
+	 * 미리 정의된 데이터 스키마를 토대로 만들어진 엔티티 개체를 말합니다.
+	 * 서버 측과 주고 받는 데이터를 정의하며, 뷰와도 연동되어 사용자와의 데이터 인터렉션 역할을 합니다.
 	 * @type {*} Ha.Entity
 	 */
 	Ha.Entity = Ha.inherit(Ha.Object, function (schemes, properties) {
@@ -225,6 +224,7 @@
 			thisArg.fireEvent('changed', [event]);
 		};
 
+
 		(function observing(target, path) {
 			if (typeof target !== 'object') return;
 
@@ -237,6 +237,10 @@
 			}
 		})(properties);
 
+		/**
+		 * 엔티티 스키마들의 이름 목록을 가져옵니다.
+		 * @returns {Array} 엔티티 스키마의 이름 목록
+		 */
 		this.getSchemeNames = function getSchemeNames() {
 			var schemeNames = [];
 
@@ -322,6 +326,10 @@
 			return schemes[name];
 		};
 
+		/**
+		 * 엔티티 프로퍼티가 변경됐을 때 발생하는 이벤트를 정의합니다.
+		 * @param func 엔티티 프로퍼티 변경 이벤트 함수
+		 */
 		this.changed = function (func) {
 			this.addEventListener('changed', func);
 		}
@@ -331,22 +339,14 @@
 		};
 	});
 
-	Ha.EntitySet = Ha.inherit(Array, function EntitySet(entity) {
-		var entity = entity;
-
-
-	});
-
+	/**
+	 * 실제 HTML DOM과 연결되어 엘리먼트나 폼 필드의 컨트롤 혹은 렌더링 등을 담당합니다.
+	 * @type {*} Ha.View
+	 */
 	Ha.View = Ha.inherit(Ha.Object, function View(viewName, controller) {
 		this.base();
 
 		var thisArg = this;
-
-		// 뷰의 상위 뷰입니다.
-		var parent;
-
-		// 뷰의 하위 뷰들입니다.
-		var children;
 
 		this.viewName = viewName;
 
@@ -354,7 +354,7 @@
 		var entryElement = document.querySelector('[data-view="' + viewName + '"]');
 
 		if (!entryElement) {
-			console.error('View \'{}\' is not exist.', viewName);
+			console.error('View \'' + viewName + '\' is not exist.\nPlease check the view name.');
 
 			return false;
 		}
@@ -471,7 +471,7 @@
 		 * @param key 엔티티 프로퍼티 키
 		 */
 		function renderTextElements(key) {
-			var textElements = entryElement.querySelectorAll('[data-text$="{{' + key + '}}"]');
+			var textElements = entryElement.querySelectorAll('[data-text*="{{' + key + '}}"]');
 
 			Array.prototype.forEach.call(textElements, function (element) {
 				var dataTextAttr = element.getAttribute('data-text');
@@ -584,7 +584,7 @@
 
 						if (!(values instanceof Array)) return;
 
-						formField.checked = values.contains(formField.value);
+						formField.checked = values.indexOf(formField.value) > 0;
 
 						break;
 
@@ -600,13 +600,13 @@
 		 * 엔티티의 속성 값이 변경됐을 때 발생합니다.
 		 */
 		entity.changed(function (e) {
-			var schemeNames = entity.getSchemeNames();
+			console.log(e.detail);
 
-			schemeNames.forEach(function (key) {
+			for (var key in e.detail) {
 				renderTextElements(key);
 				renderDirectiveElements(key);
 				changeFieldValue(key);
-			});
+			};
 		});
 
 		entity.set('name', 'alice');
@@ -619,10 +619,22 @@
 		entity.set('htmlString', '<h1>HTML String</h1>');
 	});
 
+	/**
+	 * HTML DOM에서 발생되는 이벤트들의 동작 정의를 위한 통로 개체입니다.
+	 * @type {*} Ha.Controller
+	 */
 	Ha.Controller = Ha.inherit(Ha.Object, function Controller(controls) {
-		Ha.extend(this.__proto__, controls);
+		this.base();
+
+		Ha.extend(this, controls);
 	});
 
+	/**
+	 *
+	 * @param viewName 뷰 이름
+	 * @param controls 컨트롤러의 사용자 정의 속성
+	 * @returns {Ha.View}
+	 */
 	Ha.smith = function(viewName, controls) {
 		return new Ha.View(viewName, new Ha.Controller(controls));
 	};
