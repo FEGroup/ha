@@ -3,7 +3,7 @@
  */
 (function (platform, entry) {
 	platform.Ha = entry();
-}(this, function () {
+}(window, function () {
 	"use strict";
 
 	var Ha = {};
@@ -25,6 +25,8 @@
 			var target = arguments[index];
 
 			for (var prop in target) {
+				if (!target.hasOwnProperty(prop)) continue;
+
 				source[prop] = target[prop];
 			}
 		}
@@ -46,10 +48,9 @@
 			var target = arguments[index];
 
 			for (var prop in target) {
-				if (typeof target[prop] == 'function') {
+				if (!target.hasOwnProperty(prop) || typeof target[prop] !== 'function') continue;
 
-					source[prop] = target[prop];
-				}
+				source[prop] = target[prop];
 			}
 		}
 
@@ -58,13 +59,13 @@
 
 	/**
 	 * 클래스를 상속합니다.
-	 * @param parent 상위 클래스
-	 * @param child 하위 클래스
+	 * @param p 상위 클래스
+	 * @param c 하위 클래스
 	 * @returns {*} 하위 클래스
 	 */
-	Ha.inherit = function inherit(parent, child) {
-		var parent = parent;
-		var child = child;
+	Ha.inherit = function inherit(p, c) {
+		var parent = p;
+		var child = c;
 
 		// 상위 클래스의 정의들을 하위 클래스에 부여하기 위해서, 하위 클래스의 프로토타입을 상위 클래스로 정의합니다.
 		child.prototype = new parent();
@@ -142,52 +143,19 @@
 	 * 서버 측과 주고 받는 데이터를 정의하며, 뷰와도 연동되어 사용자와의 데이터 인터렉션 역할을 합니다.
 	 * @type {*} Ha.Entity
 	 */
-	Ha.Entity = Ha.inherit(Ha.Object, function (schemes, properties) {
+	Ha.Entity = Ha.inherit(Ha.Object, function () {
 		this.base();
 
 		var thisArg = this;
-
-		// 스키마는 프로퍼티 이름과 타입의 쌍으로 이루어져야 합니다.
-		// 타입은 number, string, boolean, object를 지원합니다.
-		// 기본값(빈값)은 각각 0, '', false로 설정됩니다.
-		var schemes = Ha.extend({}, schemes);
 
 		// Entity가 보유하는 스키마 정보에 대한 실제 데이터입니다.
 		// Entity 객체의 다른 프로퍼티들과 섞이면 곤란하므로 따로 보관합니다.
 		var properties = {};
 
 		/**
-		 * 프로퍼티를 초기화합니다.
-		 */
-		var initProperties = function initProperties() {
-			for (var schemeName in schemes) {
-				var schemeType = schemes[schemeName];
-
-				switch (schemeType) {
-					case 'array':
-						properties[schemeName] = [];
-
-						break;
-					case 'number':
-						properties[schemeName] = 0;
-
-						break;
-					case 'boolean':
-						properties[schemeName] = false;
-
-						break;
-					case 'string':
-					default:
-						properties[schemeName] = '';
-
-						break;
-				}
-			}
-		}();
-
-		/**
 		 * 변경된 프로퍼티 목록에서 중복되는 프로퍼티들을 걸러내어 최종 결과만을 얻습니다.
 		 * @param changes observe에 의해 감지된 변경 사항 목록
+		 * @param path 객체 프로퍼티의 경로
 		 */
 		var refineChanges = function refineChanges(changes, path) {
 			var c = {};
@@ -224,32 +192,28 @@
 			thisArg.fireEvent('changed', [event]);
 		};
 
-
-		(function observing(target, path) {
+		/**
+		 * 대상 객체의 변화를 감지합니다.
+		 * @param target 대상 객체
+		 * @param path 프로퍼티 경로
+		 */
+		function observing(target, path) {
 			if (typeof target !== 'object') return;
+
+			Object.unobserve(target, function() {});
 
 			Object.observe(target, function (changes) {
 				dispatchChangedEvent(thisArg, refineChanges(changes, path));
 			});
 
 			for (var prop in target) {
+				if (!target.hasOwnProperty(prop)) continue;
+
 				observing(target[prop], (path == undefined ? '' : path + '.') + prop);
 			}
-		})(properties);
+		}
 
-		/**
-		 * 엔티티 스키마들의 이름 목록을 가져옵니다.
-		 * @returns {Array} 엔티티 스키마의 이름 목록
-		 */
-		this.getSchemeNames = function getSchemeNames() {
-			var schemeNames = [];
-
-			for (var key in schemes) {
-				schemeNames.push(key);
-			}
-
-			return schemeNames;
-		};
+		observing(properties);
 
 		var getByPath = function getByPath(target, path) {
 			var pathParts = path.split('.');
@@ -301,10 +265,11 @@
 			if (arguments.length == 1 && typeof arguments[0] == 'object') {
 				Ha.extend(properties, arguments[0]);
 			} else if (arguments.length == 2) {
-				var name = arguments[0];
-				var value = arguments[1];
+				properties[arguments[0]] = arguments[1];
 
-				properties[name] = value;
+				if (arguments[1] instanceof Array) {
+					observing(properties);
+				}
 			}
 		};
 
@@ -318,21 +283,12 @@
 		};
 
 		/**
-		 * 이름에 해당하는 프로퍼티의 스키마 타입을 가져옵니다.
-		 * @param name 프로퍼티 이름
-		 * @returns {*} 프로퍼티 스키마 타입
-		 */
-		this.getSchemaType = function (name) {
-			return schemes[name];
-		};
-
-		/**
 		 * 엔티티 프로퍼티가 변경됐을 때 발생하는 이벤트를 정의합니다.
 		 * @param func 엔티티 프로퍼티 변경 이벤트 함수
 		 */
 		this.changed = function (func) {
 			this.addEventListener('changed', func);
-		}
+		};
 
 		this.toString = function () {
 			return JSON.stringify(this.properties);
@@ -343,7 +299,7 @@
 	 * 실제 HTML DOM과 연결되어 엘리먼트나 폼 필드의 컨트롤 혹은 렌더링 등을 담당합니다.
 	 * @type {*} Ha.View
 	 */
-	Ha.View = Ha.inherit(Ha.Object, function View(viewName, controller) {
+	Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 		this.base();
 
 		var thisArg = this;
@@ -359,23 +315,18 @@
 			return false;
 		}
 
-		var controller = controller;
+		var controller = ctrl;
 
 		// 뷰와 관계되는 entity 객체입니다.
-		var entity = function buildEntity() {
-			var entityName = entryElement.hasAttribute('data-entity');
+		var entity = new Ha.Entity();
 
-			if (!entityName) return;
+		function elementEventCallback(eventFuncName, element) {
+			return function(e) {
+				var parameters = [e, entity, controller];
 
-			var script = document.querySelector('#' + entryElement.getAttribute('data-entity'));
-
-			// TODO Entity JSON을 위한 script를 찾지 못할 경우 어떻게 해야 할까요?
-			if (script) {
-
-			}
-
-			return new Ha.Entity(JSON.parse(script.innerHTML));
-		}();
+				controller[eventFuncName].apply(element, parameters);
+			};
+		}
 
 		(function watchEvents() {
 			var eventElements = entryElement.querySelectorAll('[data-event]');
@@ -388,15 +339,15 @@
 				var dataEventObject = JSON.parse(dataEventAttr);
 
 				for (var eventType in dataEventObject) {
+					if (!dataEventObject.hasOwnProperty(eventType)) continue;
+
 					var eventFuncName = dataEventObject[eventType];
 
 					var eventFunc = controller[eventFuncName];
 
 					if (!eventFunc || typeof eventFunc !== 'function') return;
 
-					element.addEventListener(eventType, function(e) {
-						eventFunc.call(element, e);
-					}, false);
+					element.addEventListener(eventType, elementEventCallback(eventFuncName, element), false);
 				}
 			});
 		})();
@@ -408,25 +359,23 @@
 			var inputFields = entryElement.querySelectorAll('input');
 
 			Array.prototype.forEach.call(inputFields, function(inputField) {
-				if (!entity.has(inputField.name)) return;
-
 				switch (inputField.type) {
 					case 'text':
-						inputField.addEventListener('input', function(e) {
+						inputField.addEventListener('input', function() {
 							entity.set(inputField.name, inputField.value);
 						});
 
 						break;
 
 					case 'radio':
-						inputField.addEventListener('click', function(e) {
+						inputField.addEventListener('click', function() {
 							entity.set(inputField.name, inputField.value);
 						});
 
 						break;
 
 					case 'checkbox':
-						inputField.addEventListener('click', function(e) {
+						inputField.addEventListener('click', function() {
 							var values = entity.get(inputField.name);
 
 							if (!(values instanceof Array)) {
@@ -448,9 +397,7 @@
 			var selectFields = entryElement.querySelectorAll('select');
 
 			Array.prototype.forEach.call(selectFields, function(selectField) {
-				selectField.addEventListener('input', function (e) {
-					if (!entity.has(selectField.name)) return;
-
+				selectField.addEventListener('input', function () {
 					entity.set(selectField.name, selectField.value);
 				});
 			});
@@ -458,9 +405,7 @@
 			var textAreaFields = entryElement.querySelectorAll('textarea');
 
 			Array.prototype.forEach.call(textAreaFields, function(textareaField) {
-				textareaField.addEventListener('input', function(e) {
-					if (!entity.has(textareaField.name)) return;
-
+				textareaField.addEventListener('input', function() {
 					entity.set(textareaField.name, textareaField.value);
 				});
 			});
@@ -476,7 +421,7 @@
 			Array.prototype.forEach.call(textElements, function (element) {
 				var dataTextAttr = element.getAttribute('data-text');
 
-				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)\}\}/g, function (matched, substring) {
+				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
 					if (!entity.has(substring)) return;
 
 					return entity.get(substring);
@@ -499,29 +444,27 @@
 				var directiveObject = JSON.parse(dataDirectiveAttr);
 
 				for (var directiveType in directiveObject) {
+					if (!directiveObject.hasOwnProperty(directiveType)) continue;
+
 					var directiveBody = directiveObject[directiveType];
 					var propertyName;
 
 					switch (directiveType) {
 						case 'if':
-							if (!entity.has(directiveBody)) return;
-
 							element.style.display = entity.get(directiveBody) ? 'block' : 'none';
 
 							break;
 
 						case 'ifnot':
-							if (!entity.has(directiveBody)) return;
-
 							element.style.display = entity.get(directiveBody) ? 'none' : 'block';
 
 							break;
 
 						case 'style':
 							for (var styleName in directiveBody) {
-								propertyName = directiveBody[styleName];
+								if (!directiveBody.hasOwnProperty(styleName)) continue;
 
-								if (!entity.has(propertyName)) continue;
+								propertyName = directiveBody[styleName];
 
 								element.style[styleName] = entity.get(propertyName);
 							}
@@ -543,9 +486,9 @@
 
 						case 'attr':
 							for (var attributeName in directiveBody) {
-								propertyName = directiveBody[attributeName];
+								if (!directiveBody.hasOwnProperty(attributeName)) continue;
 
-								if (!entity.has(propertyName)) continue;
+								propertyName = directiveBody[attributeName];
 
 								element.setAttribute(attributeName, entity.get(propertyName));
 							}
@@ -553,8 +496,6 @@
 							break;
 
 						case 'html':
-							if (!entity.has(directiveBody)) return;
-
 							element.innerHTML = entity.get(directiveBody);
 
 							break;
@@ -584,7 +525,7 @@
 
 						if (!(values instanceof Array)) return;
 
-						formField.checked = values.indexOf(formField.value) > 0;
+						formField.checked = values.indexOf(formField.value) > -1;
 
 						break;
 
@@ -599,14 +540,14 @@
 		/**
 		 * 엔티티의 속성 값이 변경됐을 때 발생합니다.
 		 */
-		entity.changed(function (e) {
-			console.log(e.detail);
-
+		entity.changed(function(e) {
 			for (var key in e.detail) {
+				if (!e.detail.hasOwnProperty(key)) continue;
+
 				renderTextElements(key);
 				renderDirectiveElements(key);
 				changeFieldValue(key);
-			};
+			}
 		});
 
 		entity.set('name', 'alice');
@@ -623,21 +564,153 @@
 	 * HTML DOM에서 발생되는 이벤트들의 동작 정의를 위한 통로 개체입니다.
 	 * @type {*} Ha.Controller
 	 */
-	Ha.Controller = Ha.inherit(Ha.Object, function Controller(controls) {
+	Ha.Controller = Ha.inherit(Ha.Object, function Controller(name, settings) {
 		this.base();
 
-		Ha.extend(this, controls);
+		settings = Ha.extend({'events': {}, 'requests': []}, settings);
+
+		this.entity = new Ha.Entity();
+
+		Ha.extend(this, settings.events);
+
+		this.view = new Ha.View(name, this);
+
+		function makeRequestFunc(method, url, properties) {
+			var m = method;
+			var u = url;
+			var p = properties;
+
+			return function() {
+				var xhr = new Ha.Xhr();
+
+				if (!xhr.hasOwnProperty(m)) return false;
+
+				xhr[m].call(xhr, u, p);
+			};
+		}
+
+		for (var index = 0; index < settings.requests.length; index++) {
+			var request = settings.requests[index];
+
+			if (!request.name ||
+				!request.url ||
+				!request.method ||
+				!request.properties) continue;
+
+			this[request.name] = makeRequestFunc(request.method, request.url, request.properties);
+		}
+
+		if (settings.constructor &&
+			settings.constructor instanceof Function) {
+			settings.constructor();
+		}
 	});
 
-	/**
-	 *
-	 * @param viewName 뷰 이름
-	 * @param controls 컨트롤러의 사용자 정의 속성
-	 * @returns {Ha.View}
-	 */
-	Ha.smith = function(viewName, controls) {
-		return new Ha.View(viewName, new Ha.Controller(controls));
-	};
+	Ha.Xhr = Ha.inherit(Ha.Object, function Xhr() {
+		var xhr = (function() {
+			if (typeof XMLHttpRequest != 'undefined') {
+				return new XMLHttpRequest();
+			}
+
+			try {
+				return new ActiveXObject('Msxml2.XMLHTTP');
+			} catch (e) {
+				try {
+					return new ActiveXObject('Microsoft.XMLHTTP');
+				} catch (e) {}
+			}
+
+			return false;
+		})();
+
+		if (!xhr) {
+			throw "Xhr can't use on your environment. :(";
+		}
+
+		xhr.onprogress = function(e) {
+
+		};
+
+		xhr.onerror = function(e) {
+
+		};
+
+		var successHandler = null;
+		var failHandler = null;
+
+		this.success = function(func) {
+			successHandler = func;
+		};
+		this.fail = function(func) {
+			failHandler = func;
+		};
+
+		this.request = function(method, url, data, requestHeaders) {
+			xhr.open(method, url);
+
+			for (var headerName in requestHeaders) {
+				if (!requestHeaders.hasOwnProperty(headerName)) continue;
+
+				xhr.setRequestHeader(headerName, requestHeaders[headerName]);
+			}
+
+			xhr.onreadystatechange = function(e) {
+				if (xhr.readyState === 4) { // DONE
+					if (xhr.status === 200 && successHandler) { // SUCCESS
+						successHandler(xhr.response);
+					} else if (failHandler) {
+						failHandler();
+					}
+				}
+			};
+
+			if (typeof data === 'object') {
+				xhr.send(JSON.stringify(data));
+			} else {
+				xhr.send();
+			}
+		};
+
+		this.post = function(url, data) {
+			this.request('POST',
+				url,
+				data,
+				{
+					"Content-Type": "application/json;charset=utf-8"
+				}
+			);
+		};
+
+		this.get = function(url, data) {
+			this.request('GET',
+				url,
+				data,
+				{
+					"Content-Type": "application/json;charset=utf-8"
+				}
+			);
+		};
+
+		this.put = function(url, data) {
+			this.request('PUT',
+				url,
+				data,
+				{
+					"Content-Type": "application/json;charset=utf-8"
+				}
+			)
+		};
+
+		this.delete = function(url, data) {
+			this.request('DELETE',
+				url,
+				data,
+				{
+					"Content-Type": "application/json;charset=utf-8"
+				}
+			);
+		};
+	});
 
 	return Ha;
 }));
