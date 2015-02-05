@@ -54,7 +54,7 @@ if(do_browserify) // there's a better way to do this
 gulp.task('scripts', ['js', 'hint', 'browserify']);
 
 gulp.task('server', function() {
-	gulp.src('app').pipe(web({livereload:true, open:true}))
+	gulp.src('app').pipe(web({livereload:true, open:true}));
 });
 
 gulp.task('clean', function() {

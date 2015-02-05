@@ -1,11 +1,11 @@
+"use strict";
+
 /**
  * ha(刃, edge) - the tempered cutting edge of a blade. The side opposite the mune. Also called hasaki (刃先).
  */
 (function (platform, entry) {
 	platform.Ha = entry();
 }(window, function () {
-	"use strict";
-
 	var Ha = {};
 
 	Ha.Version = '0.1.0';
@@ -83,6 +83,61 @@
 		};
 
 		return child;
+	};
+
+	Ha.Json = {};
+	Ha.Json.toObject = function(str) {
+		var dObj = {value: str};
+
+		function toObject(del) {
+			var obj = {};
+
+			if (del.value.trim().indexOf(',') == 0) {
+				del.value = del.value.slice(del.value.indexOf(','));
+			}
+
+			var index;
+
+			while ((index = del.value.indexOf(':')) > -1) {
+				var key = del.value.substr(0, index).trim();
+
+				del.value = del.value.slice(index + 1).trim();
+
+				if (del.value.indexOf('{') == 0) { // 내장 객체의 분석을 시작합니다.
+					// '{'을 잘라냅니다.
+					del.value = del.value.slice(1);
+
+					// 내장 객체를 가져옵니다.
+					obj[key] = toObject(del);
+
+					// 내장 객체에 해당하는 문자열을 제거합니다.
+					del.value = del.value.slice(del.value.length == del.value.indexOf('}') + 1 ? del.value.indexOf('}') : del.value.indexOf('}') + 1);
+
+					// 내장 객체 뒤에 콤마가 있을 경우, 제거합니다.
+					if (del.value.trim().indexOf(',') == 0) {
+						del.value = del.value.slice(del.value.length == del.value.indexOf(',') + 1 ? del.value.indexOf(',') : del.value.indexOf(',') + 1);
+					}
+				} else {
+					if (del.value.indexOf(',') == -1 &&
+						del.value.indexOf('}') == -1) { // 최상위 객체의 마지막 프로퍼티인 경우
+						obj[key] = del.value.substring(0, del.value.length);
+					} else if (del.value.indexOf(',') > 0 &&
+						del.value.indexOf(',') < del.value.indexOf('}')) { // 동일 객체 내 프로퍼티인 경우
+						obj[key] = del.value.substring(0, del.value.indexOf(','));
+
+						del.value = del.value.slice(del.value.indexOf(',') + 1);
+					} else { // 내장 객체의 마지막 프로퍼티인 경우
+						obj[key] = del.value.substring(0, del.value.indexOf('}'));
+
+						return obj;
+					}
+				}
+			}
+
+			return obj;
+		}
+
+		return toObject(dObj);
 	};
 
 	/**
@@ -304,25 +359,22 @@
 
 		var thisArg = this;
 
-		this.viewName = viewName;
+		this.name = viewName;
 
 		// 뷰에 포함되는 최상위 HTML 엘리먼트입니다.
-		var entryElement = document.querySelector('[data-view="' + viewName + '"]');
+		var entryElement = document.querySelector('[data-view="' + this.name + '"]');
 
 		if (!entryElement) {
-			console.error('View \'' + viewName + '\' is not exist.\nPlease check the view name.');
+			console.error('View \'' + this.name + '\' is not exist.\nPlease check the view name.');
 
 			return false;
 		}
 
 		var controller = ctrl;
 
-		// 뷰와 관계되는 entity 객체입니다.
-		var entity = new Ha.Entity();
-
 		function elementEventCallback(eventFuncName, element) {
 			return function(e) {
-				var parameters = [e, entity, controller];
+				var parameters = [e, controller.entity, controller];
 
 				controller[eventFuncName].apply(element, parameters);
 			};
@@ -362,31 +414,39 @@
 				switch (inputField.type) {
 					case 'text':
 						inputField.addEventListener('input', function() {
-							entity.set(inputField.name, inputField.value);
+							controller.entity.set(inputField.name, inputField.value);
 						});
 
 						break;
 
 					case 'radio':
 						inputField.addEventListener('click', function() {
-							entity.set(inputField.name, inputField.value);
+							controller.entity.set(inputField.name, inputField.value);
 						});
 
 						break;
 
 					case 'checkbox':
 						inputField.addEventListener('click', function() {
-							var values = entity.get(inputField.name);
+							var values = controller.entity.get(inputField.name);
 
 							if (!(values instanceof Array)) {
 								values = [];
-								entity.set(inputField.name, values);
+								controller.entity.set(inputField.name, values);
 							}
 
 							if (inputField.checked) {
 								values.push(inputField.value);
 							} else {
-								values.pop(inputField.value);
+								var index =  0;
+
+								for (; index < values.length; index++) {
+									if (values[index].toString() === inputField.value) {
+										break;
+									}
+								}
+
+								values.splice(index, 1);
 							}
 						});
 
@@ -398,7 +458,7 @@
 
 			Array.prototype.forEach.call(selectFields, function(selectField) {
 				selectField.addEventListener('input', function () {
-					entity.set(selectField.name, selectField.value);
+					controller.entity.set(selectField.name, selectField.value);
 				});
 			});
 
@@ -406,7 +466,7 @@
 
 			Array.prototype.forEach.call(textAreaFields, function(textareaField) {
 				textareaField.addEventListener('input', function() {
-					entity.set(textareaField.name, textareaField.value);
+					controller.entity.set(textareaField.name, textareaField.value);
 				});
 			});
 		})();
@@ -422,9 +482,9 @@
 				var dataTextAttr = element.getAttribute('data-text');
 
 				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-					if (!entity.has(substring)) return;
+					if (!controller.entity.has(substring)) return;
 
-					return entity.get(substring);
+					return controller.entity.get(substring);
 				});
 			});
 		}
@@ -437,11 +497,7 @@
 			var directiveElements = entryElement.querySelectorAll('[data-directive*="' + key + '"]');
 
 			Array.prototype.forEach.call(directiveElements, function (element) {
-				var dataDirectiveAttr = element.getAttribute('data-directive').replace(/[a-z|A-Z|0-9|-]+/g, '"$&"');
-
-				dataDirectiveAttr = '{' + dataDirectiveAttr + '}';
-
-				var directiveObject = JSON.parse(dataDirectiveAttr);
+				var directiveObject = Ha.Json.toObject(element.getAttribute('data-directive'));
 
 				for (var directiveType in directiveObject) {
 					if (!directiveObject.hasOwnProperty(directiveType)) continue;
@@ -451,12 +507,12 @@
 
 					switch (directiveType) {
 						case 'if':
-							element.style.display = entity.get(directiveBody) ? 'block' : 'none';
+							element.style.display = controller.entity.get(directiveBody) ? 'block' : 'none';
 
 							break;
 
 						case 'ifnot':
-							element.style.display = entity.get(directiveBody) ? 'none' : 'block';
+							element.style.display = controller.entity.get(directiveBody) ? 'none' : 'block';
 
 							break;
 
@@ -466,7 +522,7 @@
 
 								propertyName = directiveBody[styleName];
 
-								element.style[styleName] = entity.get(propertyName);
+								element.style[styleName] = controller.entity.get(propertyName);
 							}
 
 							break;
@@ -490,13 +546,48 @@
 
 								propertyName = directiveBody[attributeName];
 
-								element.setAttribute(attributeName, entity.get(propertyName));
+								element.setAttribute(attributeName, controller.entity.get(propertyName));
 							}
 
 							break;
 
 						case 'html':
-							element.innerHTML = entity.get(directiveBody);
+							element.innerHTML = controller.entity.get(directiveBody);
+
+							break;
+
+						case 'foreach':
+							var propertyName = directiveBody;
+							var subName = '';
+
+							if (propertyName.indexOf('->')) {
+								subName = propertyName.slice(propertyName.indexOf('->') + 2);
+								propertyName = propertyName.substring(0, propertyName.indexOf('->'));
+							}
+
+							var templateId = propertyName + '_template';
+							var scriptElement = document.getElementById(templateId);
+
+							if (!scriptElement) {
+								scriptElement = document.createElement('script');
+
+								scriptElement.setAttribute('id', templateId);
+								scriptElement.setAttribute('type', 'text/html');
+
+								scriptElement.innerHTML = element.innerHTML.trim();
+
+								document.head.appendChild(scriptElement);
+							}
+
+							element.innerHTML = null;
+
+							var arr = controller.entity.get(propertyName);
+
+							arr = arr instanceof Array ? arr : [arr];
+
+							arr.forEach(function(item) {
+								element.innerHTML += scriptElement.innerHTML;
+							});
 
 							break;
 					}
@@ -514,23 +605,27 @@
 			Array.prototype.forEach.call(formFields, function(formField) {
 				switch (formField.type) {
 					case 'radio':
-						if (formField.value === entity.get(key)) {
+						if (formField.value === controller.entity.get(key)) {
 							formField.checked = true;
 						}
 
 						break;
 
 					case 'checkbox':
-						var values = entity.get(key);
+						var values = controller.entity.get(key);
 
 						if (!(values instanceof Array)) return;
 
-						formField.checked = values.indexOf(formField.value) > -1;
+						var a = values.some(function(item, index, array) {
+							return item.toString() === formField.value;
+						});
+
+						formField.checked = a;
 
 						break;
 
 					default :
-						formField.value = entity.get(key);
+						formField.value = controller.entity.get(key);
 
 						break;
 				}
@@ -540,7 +635,7 @@
 		/**
 		 * 엔티티의 속성 값이 변경됐을 때 발생합니다.
 		 */
-		entity.changed(function(e) {
+		controller.entity.changed(function(e) {
 			for (var key in e.detail) {
 				if (!e.detail.hasOwnProperty(key)) continue;
 
@@ -549,15 +644,6 @@
 				changeFieldValue(key);
 			}
 		});
-
-		entity.set('name', 'alice');
-		entity.set('enabled', false);
-		entity.set('align', 'center');
-		entity.set('id', 'real');
-		entity.set('css', 'fake');
-		entity.set('backgroundColor', 'red');
-		entity.set('fontSize', '50px');
-		entity.set('htmlString', '<h1>HTML String</h1>');
 	});
 
 	/**
@@ -602,7 +688,7 @@
 
 		if (settings.constructor &&
 			settings.constructor instanceof Function) {
-			settings.constructor();
+			settings.constructor.call(this);
 		}
 	});
 
