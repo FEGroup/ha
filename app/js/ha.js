@@ -255,11 +255,13 @@
 		function observing(target, path) {
 			if (typeof target !== 'object') return;
 
-			Object.unobserve(target, function() {});
-
-			Object.observe(target, function (changes) {
+			function observe(changes) {
 				dispatchChangedEvent(thisArg, refineChanges(changes, path));
-			});
+			}
+
+			Object.unobserve(target, observe);
+
+			Object.observe(target, observe);
 
 			for (var prop in target) {
 				if (!target.hasOwnProperty(prop)) continue;
@@ -380,8 +382,8 @@
 			};
 		}
 
-		(function watchEvents() {
-			var eventElements = entryElement.querySelectorAll('[data-event]');
+		function watchEvents(element) {
+			var eventElements = element.querySelectorAll('[data-event]');
 
 			Array.prototype.forEach.call(eventElements, function(element) {
 				var dataEventAttr = element.getAttribute('data-event').replace(/[a-z|A-Z|0-9|-]+/g, '"$&"');
@@ -402,7 +404,9 @@
 					element.addEventListener(eventType, elementEventCallback(eventFuncName, element), false);
 				}
 			});
-		})();
+		}
+
+		watchEvents(entryElement);
 
 		/**
 		 * 폼 필드로부터 엔티티 프로퍼티를 연결합니다.
@@ -473,28 +477,35 @@
 
 		/**
 		 * 텍스트 엘리먼트를 엔티티에 맞게 렌더링합니다.
+		 * @param element 텍스트 렌더링의 대상이 되는 최상위 엘리먼트
+		 * @param obj 엔티티 오브젝트
 		 * @param key 엔티티 프로퍼티 키
 		 */
-		function renderTextElements(key) {
-			var textElements = entryElement.querySelectorAll('[data-text*="{{' + key + '}}"]');
+		function renderTextElements(element, obj, key) {
+			var textElements = element.querySelectorAll('[data-text*="{{' + key + '}}"]');
 
 			Array.prototype.forEach.call(textElements, function (element) {
 				var dataTextAttr = element.getAttribute('data-text');
 
 				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-					if (!controller.entity.has(substring)) return;
+					if (!obj.hasOwnProperty(substring)) return;
 
-					return controller.entity.get(substring);
+					return obj[substring];
+
+					//if (!controller.entity.has(substring)) return;
+					//
+					//return controller.entity.get(substring);
 				});
 			});
 		}
 
 		/**
 		 * 디렉티브 엘리먼트를 엔티티에 맞게 렌더링합니다.
+		 * @param element 디렉티브 렌더링의 대상이 되는 최상위 엘리먼트
 		 * @param key 엔티티 프로퍼티 키
 		 */
-		function renderDirectiveElements(key) {
-			var directiveElements = entryElement.querySelectorAll('[data-directive*="' + key + '"]');
+		function renderDirectiveElements(element, key) {
+			var directiveElements = element.querySelectorAll('[data-directive*="' + key + '"]');
 
 			Array.prototype.forEach.call(directiveElements, function (element) {
 				var directiveObject = Ha.Json.toObject(element.getAttribute('data-directive'));
@@ -557,7 +568,7 @@
 							break;
 
 						case 'foreach':
-							var propertyName = directiveBody;
+							propertyName = directiveBody;
 							var subName = '';
 
 							if (propertyName.indexOf('->')) {
@@ -581,18 +592,46 @@
 
 							element.innerHTML = null;
 
-							var arr = controller.entity.get(propertyName);
+							var property = controller.entity.get(propertyName);
 
-							arr = arr instanceof Array ? arr : [arr];
+							property = property instanceof Array ? property : [property];
 
-							arr.forEach(function(item) {
-								element.innerHTML += scriptElement.innerHTML;
+							property.forEach(function(item) {
+								element.innerHTML += renderForeachDirective(item, scriptElement.innerHTML, subName);
+
+								watchEvents(element);
 							});
 
 							break;
 					}
 				}
 			});
+		}
+
+		function renderForeachDirective(obj, html, subName) {
+			var tmpEl = document.createElement('div');
+
+			tmpEl.innerHTML = html;
+
+			var elements = tmpEl.querySelectorAll('[data-text]');
+
+			for (var index = 0; index < elements.length; index++) {
+				var element = elements.item(index);
+
+				var dataTextAttr = element.getAttribute('data-text');
+
+				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
+					if (substring.indexOf(subName + '.') === 0) {
+						var propertyName = substring.slice(subName.length + 1);
+
+						if (obj.hasOwnProperty(propertyName)) {
+							return obj[propertyName];
+						}
+					}
+				});
+			}
+
+			return tmpEl.innerHTML;
 		}
 
 		/**
@@ -639,8 +678,8 @@
 			for (var key in e.detail) {
 				if (!e.detail.hasOwnProperty(key)) continue;
 
-				renderTextElements(key);
-				renderDirectiveElements(key);
+				renderTextElements(entryElement, controller.entity, key);
+				renderDirectiveElements(entryElement, key);
 				changeFieldValue(key);
 			}
 		});
@@ -661,13 +700,16 @@
 
 		this.view = new Ha.View(name, this);
 
-		function makeRequestFunc(method, url, properties) {
-			var m = method;
-			var u = url;
-			var p = properties;
+		function makeRequestFunc(method, url, properties, response) {
+			var m = method,
+				u = url,
+				p = properties,
+				r = response;
 
 			return function() {
 				var xhr = new Ha.Xhr();
+
+				xhr.success(r);
 
 				if (!xhr.hasOwnProperty(m)) return false;
 
@@ -680,10 +722,13 @@
 
 			if (!request.name ||
 				!request.url ||
-				!request.method ||
-				!request.properties) continue;
+				!request.method) continue;
 
-			this[request.name] = makeRequestFunc(request.method, request.url, request.properties);
+			if (this[request.name]) {
+				throw 'Duplicated request name. => "' + request.name + '"';
+			}
+
+			this[request.name] = makeRequestFunc(request.method, request.url, request.properties, request.response);
 		}
 
 		if (settings.constructor &&
