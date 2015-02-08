@@ -9,6 +9,7 @@
 				this.entity.set('backgroundColor', 'red');
 				this.entity.set('fontSize', '50px');
 				this.entity.set('htmlString', '<h1>HTML String</h1>');
+				this.entity.set('hobby', [0, 1]);
 				this.entity.set('items', [
 					{'name': 'name1', 'type': 'type1'},
 					{'name': 'name2', 'type': 'type2'},
@@ -18,7 +19,7 @@
 			},
 			'events': {
 				'add': function(e, entity, controller) {
-					controller.test();
+
 				}
 			},
 			'requests': [

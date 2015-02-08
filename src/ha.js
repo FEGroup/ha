@@ -259,7 +259,7 @@
 				dispatchChangedEvent(thisArg, refineChanges(changes, path));
 			}
 
-			Object.unobserve(target, observe);
+			//Object.unobserve(target, observe);
 
 			Object.observe(target, observe);
 
@@ -478,23 +478,18 @@
 		/**
 		 * 텍스트 엘리먼트를 엔티티에 맞게 렌더링합니다.
 		 * @param element 텍스트 렌더링의 대상이 되는 최상위 엘리먼트
-		 * @param obj 엔티티 오브젝트
 		 * @param key 엔티티 프로퍼티 키
 		 */
-		function renderTextElements(element, obj, key) {
+		function renderTextElements(element, key) {
 			var textElements = element.querySelectorAll('[data-text*="{{' + key + '}}"]');
 
 			Array.prototype.forEach.call(textElements, function (element) {
 				var dataTextAttr = element.getAttribute('data-text');
 
 				element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-					if (!obj.hasOwnProperty(substring)) return;
+					if (!controller.entity.has(substring)) return;
 
-					return obj[substring];
-
-					//if (!controller.entity.has(substring)) return;
-					//
-					//return controller.entity.get(substring);
+					return controller.entity.get(substring);
 				});
 			});
 		}
@@ -678,7 +673,7 @@
 			for (var key in e.detail) {
 				if (!e.detail.hasOwnProperty(key)) continue;
 
-				renderTextElements(entryElement, controller.entity, key);
+				renderTextElements(entryElement, key);
 				renderDirectiveElements(entryElement, key);
 				changeFieldValue(key);
 			}
@@ -709,7 +704,10 @@
 			return function() {
 				var xhr = new Ha.Xhr();
 
-				xhr.success(r);
+				if (r) {
+					xhr.success(r);
+					xhr.fail(r);
+				}
 
 				if (!xhr.hasOwnProperty(m)) return false;
 
