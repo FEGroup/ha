@@ -11,6 +11,7 @@
     "gulp-cssmin": "~0.1.6",
     "gulp-filter": "~1.0.2",
     "gulp-jshint": "~1.8.6",
+    "gulp-order": "^1.1.1",
     "gulp-rename": "~1.2.0",
     "gulp-rimraf": "^0.1.1",
     "gulp-ruby-sass": "~0.7.1",

@@ -6,6 +6,9 @@
 	<meta name="description" content="">
 </head>
 <body>
+<!--<button id="btn" type="button"></button>-->
+<!--<input type="text" name="path">-->
+<!--<input type="text" name="value">-->
 	<div data-view="root-view" data-entity="entity">
 		<span data-event="click: add, mouseover: mover">Here is View in Ha.</span>
 		<input type="text" name="name" />
@@ -38,8 +41,13 @@
 			<div data-text="{{item.name}}" data-event="click: add">띠용</div>
 			<div data-text="{{item.type}}">삐용</div>
 		</div>
-		<div role="tree"></div>
-
+		<div role="tree">
+			<ul data-directive="foreach:trees->child">
+				<li data-text="{{child.name}}">
+					<ul data-directive="foreach:children->child, if:children"></ul>
+				</li>
+			</ul>
+		</div>
 	</div>
 </body>
 </html>
