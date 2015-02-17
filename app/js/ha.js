@@ -234,13 +234,10 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 			if (change.object instanceof Array &&
 				change.name === 'length') continue;
 
-			var propPath = (path === undefined ? '' : path + '.') + change.name;
+			var propPath = path !== undefined && !(change.object instanceof Array) ?
+				path + '.' + change.name : path === undefined ? change.name : path;
 
 			c.push(propPath);
-
-			//c[propPath] = thisArg.get(propPath);
-
-			//setByPath(c, propPath, getByPath(properties, propPath));
 		}
 
 		return c;
@@ -266,16 +263,18 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 						break;
 
 					case 'delete':
-						Object.unobserve(change.object, observe);
+						if (!(change.object instanceof Array)) {
+							Object.unobserve(change.object, observe);
+						}
 
 						break;
 				}
 			});
-			console.log(refineChanges(changes, path));
-			//thisArg.trigger('changed', refineChanges(changes, path));
-		}
 
-		//Object.unobserve(target, observe);
+			var rc = refineChanges(changes, path);
+			console.log(rc);
+			thisArg.trigger('changed', rc);
+		}
 
 		if (observed.indexOf(path) === -1) {
 			Object.observe(target, observe);
@@ -520,30 +519,15 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 				case 'checkbox':
 					inputField.addEventListener('click', function() {
-						if (!controller.entity.isTypeOf(inputField.name, 'array')) {
-							controller.entity.set(inputField.name, []);
+						if (!controller.entity.instanceOf(inputField.name, Array)) {
+							controller.entity.push(inputField.name, []);
 						}
 
-						//var values = controller.entity.get(inputField.name);
-						//
-						//if (!(values instanceof Array)) {
-						//	values = [];
-						//	controller.entity.set(inputField.name, values);
-						//}
-						//
-						//if (inputField.checked) {
-						//	values.push(inputField.value);
-						//} else {
-						//	var index =  0;
-						//
-						//	for (; index < values.length; index++) {
-						//		if (values[index].toString() === inputField.value) {
-						//			break;
-						//		}
-						//	}
-						//
-						//	values.splice(index, 1);
-						//}
+						if (inputField.checked) {
+							controller.entity.push(inputField.name, inputField.value);
+						} else {
+							controller.entity.splice(inputField.name, inputField.value);
+						}
 					});
 
 					break;

@@ -78,30 +78,15 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 				case 'checkbox':
 					inputField.addEventListener('click', function() {
-						if (!controller.entity.isTypeOf(inputField.name, 'array')) {
-							controller.entity.set(inputField.name, []);
+						if (!controller.entity.instanceOf(inputField.name, Array)) {
+							controller.entity.push(inputField.name, []);
 						}
 
-						//var values = controller.entity.get(inputField.name);
-						//
-						//if (!(values instanceof Array)) {
-						//	values = [];
-						//	controller.entity.set(inputField.name, values);
-						//}
-						//
-						//if (inputField.checked) {
-						//	values.push(inputField.value);
-						//} else {
-						//	var index =  0;
-						//
-						//	for (; index < values.length; index++) {
-						//		if (values[index].toString() === inputField.value) {
-						//			break;
-						//		}
-						//	}
-						//
-						//	values.splice(index, 1);
-						//}
+						if (inputField.checked) {
+							controller.entity.push(inputField.name, inputField.value);
+						} else {
+							controller.entity.splice(inputField.name, inputField.value);
+						}
 					});
 
 					break;
