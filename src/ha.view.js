@@ -78,26 +78,30 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 				case 'checkbox':
 					inputField.addEventListener('click', function() {
-						var values = controller.entity.get(inputField.name);
-
-						if (!(values instanceof Array)) {
-							values = [];
-							controller.entity.set(inputField.name, values);
+						if (!controller.entity.isTypeOf(inputField.name, 'array')) {
+							controller.entity.set(inputField.name, []);
 						}
 
-						if (inputField.checked) {
-							values.push(inputField.value);
-						} else {
-							var index =  0;
-
-							for (; index < values.length; index++) {
-								if (values[index].toString() === inputField.value) {
-									break;
-								}
-							}
-
-							values.splice(index, 1);
-						}
+						//var values = controller.entity.get(inputField.name);
+						//
+						//if (!(values instanceof Array)) {
+						//	values = [];
+						//	controller.entity.set(inputField.name, values);
+						//}
+						//
+						//if (inputField.checked) {
+						//	values.push(inputField.value);
+						//} else {
+						//	var index =  0;
+						//
+						//	for (; index < values.length; index++) {
+						//		if (values[index].toString() === inputField.value) {
+						//			break;
+						//		}
+						//	}
+						//
+						//	values.splice(index, 1);
+						//}
 					});
 
 					break;
@@ -124,19 +128,18 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 	/**
 	 * 텍스트 엘리먼트를 엔티티에 맞게 렌더링합니다.
 	 * @param element 텍스트 렌더링의 대상이 되는 최상위 엘리먼트
-	 * @param obj 프로퍼티 객체
 	 * @param key 엔티티 프로퍼티 키
 	 */
-	function renderTextElements(element, obj, key) {
+	function renderTextElements(element, key) {
 		var textElements = element.querySelectorAll('[data-text*="{{' + key + '}}"]');
 
 		Array.prototype.forEach.call(textElements, function (element) {
 			var dataTextAttr = element.getAttribute('data-text');
 
 			element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-				if (!obj.hasOwnProperty(substring)) return;
+				if (!controller.entity.has(substring)) return;
 
-				return obj instanceof Ha.Entity ? obj.get(substring) : obj[substring];
+				return controller.entity.get(substring);
 			});
 		});
 	}
@@ -145,25 +148,22 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 	 * Directive 목록과 처리 핸들러입니다.
 	 */
 	var directives = {
-		'if': function(element, obj, key) {
-			element.style.display = (obj instanceof Ha.Entity ?
-				obj.get(key) : obj[key]) ? 'block' : 'none';
+		'if': function(element, key) {
+			element.style.display = controller.entity.get(key) ? 'block' : 'none';
 		},
-		'ifnot': function(element, obj, key) {
-			element.style.display = (obj instanceof Ha.Entity ?
-				obj.get(key) : obj[key]) ? 'none' : 'block';
+		'ifnot': function(element, key) {
+			element.style.display = controller.entity.get(key) ? 'none' : 'block';
 		},
-		'style': function(element, obj, style) {
+		'style': function(element, style) {
 			for (var styleName in style) {
 				if (!style.hasOwnProperty(styleName)) continue;
 
 				var propName = style[styleName];
 
-				element.style[styleName] = obj instanceof Ha.Entity ?
-					obj.get(propName) : obj[propName];
+				element.style[styleName] = controller.entity.get(propName);
 			}
 		},
-		'css': function(element, obj, css) {
+		'css': function(element, css) {
 			if (!(css instanceof Array)) {
 				css = [css];
 			}
@@ -174,21 +174,19 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 				}
 			});
 		},
-		'attr': function(element, obj, attrs) {
+		'attr': function(element, attrs) {
 			for (var name in attrs) {
 				if (!attrs.hasOwnProperty(name)) continue;
 
 				var propName = attrs[name];
 
-				element.setAttribute(name, obj instanceof Ha.Entity ?
-					obj.get(propName) : obj[propName]);
+				element.setAttribute(name, controller.entity.get(propName));
 			}
 		},
-		'html': function(element, obj, name) {
-			element.innerHTML = obj instanceof Ha.Entity ?
-				obj.get(name) : obj[name];
+		'html': function(element, name) {
+			element.innerHTML = controller.entity.get(name);
 		},
-		'foreach': function(element, obj, key) {
+		'foreach': function(element, key) {
 			var propName = key;
 			var subName = '';
 
@@ -213,8 +211,7 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 			element.innerHTML = null;
 
-			var property = obj instanceof Ha.Entity ?
-				obj.get(propName) : obj[propName];
+			var property = controller.entity.get(propName);
 
 			property = property instanceof Array ? property : [property];
 
@@ -237,10 +234,9 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 	/**
 	 * 디렉티브 엘리먼트를 엔티티에 맞게 렌더링합니다.
 	 * @param element 디렉티브 렌더링의 대상이 되는 최상위 엘리먼트
-	 * @param obj
 	 * @param key 엔티티 프로퍼티 키
 	 */
-	function renderDirectiveElements(element, obj, key) {
+	function renderDirectiveElements(element, key) {
 		var directiveElements = element.querySelectorAll('[data-directive*="' + key + '"]');
 
 		Array.prototype.forEach.call(directiveElements, function (element) {
@@ -253,7 +249,7 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 				if (!directives.hasOwnProperty(directiveType)) continue;
 
-				directives[directiveType].call(thisArg, element, obj, directiveBody);
+				directives[directiveType].call(thisArg, element, directiveBody);
 			}
 		});
 	}
@@ -305,11 +301,9 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 					if (!(values instanceof Array)) return;
 
-					var a = values.some(function(item, index, array) {
+					formField.checked = values.some(function(item, index, array) {
 						return item.toString() === formField.value;
 					});
-
-					formField.checked = a;
 
 					break;
 
@@ -326,16 +320,9 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 	 */
 	controller.entity.changed(function(e) {
 		e.detail.forEach(function(path) {
-			renderTextElements(entryElement, controller.entity, path);
-			renderDirectiveElements(entryElement, controller.entity, path);
+			renderTextElements(entryElement, path);
+			renderDirectiveElements(entryElement, path);
 			changeFieldValue(path);
 		});
-		//for (var key in e.detail) {
-		//	if (!e.detail.hasOwnProperty(key)) continue;
-		//
-		//	renderTextElements(entryElement, controller.entity, key);
-		//	renderDirectiveElements(entryElement, controller.entity, key);
-		//	changeFieldValue(key);
-		//}
 	});
 });

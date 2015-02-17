@@ -40,6 +40,7 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 	/**
 	 * 대상 객체의 변화를 감지합니다.
 	 * @param target 대상 객체
+	 * @param path 대상 객체의 경로
 	 */
 	function observing(target, path) {
 		if (typeof target !== 'object') return false;
@@ -64,8 +65,8 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 						break;
 				}
 			});
-
-			thisArg.trigger('changed', refineChanges(changes, path));
+			console.log(refineChanges(changes, path));
+			//thisArg.trigger('changed', refineChanges(changes, path));
 		}
 
 		//Object.unobserve(target, observe);
@@ -81,6 +82,8 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 		if (typeof obj !== 'object') return;
 
 		observing(obj, path);
+
+		if (typeof obj === 'array') return;
 
 		for (var key in obj) {
 			if (!obj.hasOwnProperty(key)) continue;
@@ -118,14 +121,13 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 
 			pathPart = pathPart === '' ? name : pathPart + '.' + name;
 
-			if (obj[name]) {
-				obj = obj[name];
-			} else {
+			if (!obj[name]) {
 				obj[name] = {};
+
 				observing(obj, pathPart);
 			}
-			//obj = obj[name] ?
-			//	obj[name] : obj[name] = {}, observing(obj, pp);
+
+			obj = obj[name];
 		}
 
 		// string이나 number일 경우, 프로퍼티를 설정할 수 없으므로 Object로 만듭니다.(만약, 그렇게 되는 것이 싫을 경우 주석 처리해야 합니다.)
@@ -139,7 +141,7 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 	 * @param path 검사할 프로퍼티 경로
 	 * @returns {boolean} 프로퍼티가 존재하면 true
 	 */
-	this.has = function (path) {
+	this.has = function(path) {
 		var names = path.split('.'),
 			obj = properties;
 
@@ -154,6 +156,49 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 		}
 
 		return true;
+	};
+
+	this.push = function(path, value) {
+		var names = path.split('.'),
+			obj = properties,
+			pathPart = '';
+
+		for (var index = 0; index < names.length; index++) {
+			var name = names[index];
+
+			pathPart = pathPart === '' ? name : pathPart + '.' + name;
+
+			if (obj[name]) {
+				obj = obj[name];
+			} else if(index == names.length - 1) {
+				obj = obj[name] = [];
+				observing(obj, pathPart);
+			} else {
+				obj = obj[name] = {};
+				observing(obj, pathPart);
+			}
+		}
+
+		if (obj instanceof Array) obj.push(value);
+		else return false;
+	};
+
+	this.indexOf = function(path, value) {
+		var arr = this.get(path);
+
+		return arr instanceof Array ? arr.indexOf(value) : -1;
+	};
+
+	this.typeOf = function(path) {
+		return typeof this.get(path);
+	};
+
+	this.isTypeOf = function(path, type) {
+		return this.typeOf(path) === type;
+	};
+
+	this.instanceOf = function(path, instanceType) {
+		return this.get(path) instanceof instanceType;
 	};
 
 	/**
