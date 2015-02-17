@@ -230,6 +230,10 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 		for (var index = 0; index < changes.length; index++) {
 			var change = changes[index];
 
+			// 변화가 일어난 객체가 배열이고 해당 변수의 배열의 길이를 나타내는 변수일 경우 무시합니다.
+			if (change.object instanceof Array &&
+				change.name === 'length') continue;
+
 			var propPath = (path === undefined ? '' : path + '.') + change.name;
 
 			c.push(propPath);
@@ -261,11 +265,6 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 
 						break;
 
-					case 'update':
-						console.log('update observed', change);
-
-						break;
-
 					case 'delete':
 						Object.unobserve(change.object, observe);
 
@@ -290,7 +289,7 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 
 		observing(obj, path);
 
-		if (typeof obj === 'array') return;
+		if (obj instanceof Array) return;
 
 		for (var key in obj) {
 			if (!obj.hasOwnProperty(key)) continue;
@@ -319,6 +318,9 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 	};
 
 	this.set = function(path, value) {
+		// 배열을 추가하는 동작은 push 메서드로만 지원합니다.
+		if (value instanceof Array) return;
+
 		var names = path.split('.'),
 			obj = properties,
 			pathPart = '';
@@ -386,8 +388,25 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 			}
 		}
 
-		if (obj instanceof Array) obj.push(value);
-		else return false;
+		if (obj instanceof Array) {
+			if (value instanceof Array) {
+				value.forEach(function(item) {
+					obj.push(item);
+				});
+			} else {
+				obj.push(value);
+			}
+		} else {
+			return false;
+		}
+	};
+
+	this.splice = function(path, value) {
+		var arr = this.get(path);
+
+		if (!(arr instanceof Array)) return;
+
+		arr.splice(arr.indexOf(value), 1);
 	};
 
 	this.indexOf = function(path, value) {
