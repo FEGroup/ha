@@ -4,6 +4,12 @@
 	<title>HA - edge of a blade</title>
 	<meta name="viewport" content="width=device-width" >
 	<meta name="description" content="">
+	<script type="text/html" id="tree-node">
+		<li>
+			<span data-text="{{child.name}}"></span>
+			<ul data-directive="template:{name: 'tree-node', foreach: children->child}, if:children"></ul>
+		</li>
+	</script>
 </head>
 <body>
 <button id="btn" type="button"></button>
@@ -43,11 +49,7 @@
 			<div data-text="{{item.type}}">삐용</div>
 		</div>
 		<div role="tree">
-			<ul data-directive="foreach:trees->child">
-				<li data-text="{{child.name}}">
-					<ul data-directive="foreach:children->child, if:children"></ul>
-				</li>
-			</ul>
+			<ul data-directive="template:{name: tree-node, foreach: trees->child}"></ul>
 		</div>
 	</div>
 </body>

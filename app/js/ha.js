@@ -271,9 +271,7 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 				}
 			});
 
-			var rc = refineChanges(changes, path);
-			console.log(rc);
-			thisArg.trigger('changed', rc);
+			thisArg.trigger('changed', refineChanges(changes, path));
 		}
 
 		if (observed.indexOf(path) === -1) {
@@ -443,20 +441,18 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
  * 실제 HTML DOM과 연결되어 엘리먼트나 폼 필드의 컨트롤 혹은 렌더링 등을 담당합니다.
  * @type {*} Ha.View
  */
-Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
+Ha.View = Ha.inherit(Ha.Object, function View(name, ctrl) {
 	this.base();
 
 	var thisArg = this;
 
-	this.name = viewName;
+	this.name = name;
 
-	// 뷰에 포함되는 최상위 HTML 엘리먼트입니다.
+	// 뷰를 가르키는 최상위 HTML 엘리먼트입니다.
 	var entryElement = document.querySelector('[data-view="' + this.name + '"]');
 
 	if (!entryElement) {
-		console.error('View \'' + this.name + '\' is not exist.\nPlease check the view name.');
-
-		return false;
+		throw 'View \'' + this.name + '\' is not exist.\nPlease check the view name.';
 	}
 
 	var controller = ctrl;
@@ -469,6 +465,10 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 		};
 	}
 
+	/**
+	 * 이벤트를 관찰합니다.
+	 * @param element
+	 */
 	function watchEvents(element) {
 		var eventElements = element.querySelectorAll('[data-event]');
 
@@ -654,6 +654,37 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 					}
 				}
 			});
+		},
+		'template': function(element, template, obj) {
+			if (!template || !template.name || !template.foreach) return;
+
+			var templateHtml = document.getElementById(template.name);
+
+			if (templateHtml.children.length != 1) return;
+
+			if (template.foreach.indexOf('->')) {
+				subName = template.foreach.slice(template.foreach.indexOf('->') + 2);
+				propName = template.foreach.substring(0, template.foreach.indexOf('->'));
+			}
+
+			var property;
+
+			if (!obj) property = controller.entity.get(propName);
+			else property = obj[propName];
+
+			property.forEach(function(item) {
+				var cloneElement = templateHtml[0].cloneNode(true);
+
+				for (var p in item) {
+					renderTextElements(cloneElement, subName + '.' + p);
+				}
+			});
+
+			element.appendChild();
+
+
+
+			console.log(templateHtml);
 		}
 	};
 
@@ -685,23 +716,23 @@ Ha.View = Ha.inherit(Ha.Object, function View(viewName, ctrl) {
 
 		tmpEl.innerHTML = html;
 
-		//var elements = tmpEl.querySelectorAll('[data-text]');
-		//
-		//for (var index = 0; index < elements.length; index++) {
-		//	var element = elements.item(index);
-		//
-		//	var dataTextAttr = element.getAttribute('data-text');
-		//
-		//	element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-		//		if (substring.indexOf(subName + '.') === 0) {
-		//			var propertyName = substring.slice(subName.length + 1);
-		//
-		//			if (obj.hasOwnProperty(propertyName)) {
-		//				return obj[propertyName];
-		//			}
-		//		}
-		//	});
-		//}
+		var elements = tmpEl.querySelectorAll('[data-text]');
+
+		for (var index = 0; index < elements.length; index++) {
+			var element = elements.item(index);
+
+			var dataTextAttr = element.getAttribute('data-text');
+
+			element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
+				if (substring.indexOf(subName + '.') === 0) {
+					var propertyName = substring.slice(subName.length + 1);
+
+					if (obj.hasOwnProperty(propertyName)) {
+						return obj[propertyName];
+					}
+				}
+			});
+		}
 
 		return tmpEl.innerHTML;
 	}

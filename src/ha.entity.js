@@ -64,9 +64,7 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 				}
 			});
 
-			var rc = refineChanges(changes, path);
-			console.log(rc);
-			thisArg.trigger('changed', rc);
+			thisArg.trigger('changed', refineChanges(changes, path));
 		}
 
 		if (observed.indexOf(path) === -1) {
