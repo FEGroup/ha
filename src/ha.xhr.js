@@ -1,4 +1,4 @@
-Ha.Xhr = Ha.inherit(Ha.Object, function Xhr() {
+Ha.Xhr = Ha.inherit(Ha.Object, function Xhr() {this.base();
 	var xhr = (function() {
 		if (typeof XMLHttpRequest != 'undefined') {
 			return new XMLHttpRequest();

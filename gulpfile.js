@@ -23,6 +23,7 @@ gulp.task('js', function() {
 		.pipe(order([
 			'ha.js',
 			'ha.json.js',
+			'ha.map.js',
 			'ha.object.js',
 			'ha.entity.js',
 			'ha.view.js',

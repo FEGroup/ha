@@ -12,10 +12,6 @@
 	</script>
 </head>
 <body>
-<button id="btn" type="button"></button>
-<input type="text" name="path">
-<input type="text" name="value">
-<button id="btn2" type="button"></button>
 	<div data-view="root-view" data-entity="entity">
 		<span data-event="click: add, mouseover: mover">Here is View in Ha.</span>
 		<input type="text" name="name" />
@@ -24,7 +20,7 @@
 			<span data-text="{{gender}}"></span>
 			<span data-text="{{description}}"></span>
 		</div>
-		<div data-directive="attr:{align: align, id: id}, css:css, style:{background-color:backgroundColor, font-size:fontSize}">If Enabled?</div>
+		<div data-directive="attr:{align: algn, id: iddd}, css:cssss, style:{background-color:bgColor, font-size:fontSz}">If Enabled?</div>
 		<div data-directive="if:enabled">If Enabled?</div>
 		<div data-directive="ifnot:enabled">If not Enabled?</div>
 		<div data-directive="html:htmlString">Html String</div>
@@ -44,9 +40,14 @@
 		<label><input type="checkbox" name="hobby" value="2">C</label>
 		<label><input type="checkbox" name="hobby" value="3">D</label>
 		<textarea name="description" rows="10"></textarea>
-		<div data-directive="foreach:items->item">
-			<div data-text="{{item.name}}" data-event="click: add">띠용</div>
-			<div data-text="{{item.type}}">삐용</div>
+		<div data-loop="items">
+			<div>
+				<div data-text="{{name}}" data-event="click: add">띠용</div>
+				<div data-directive="if:enabled, style:{background-color:color}" data-text="{{type}}">삐용</div>
+				<div data-loop="children">
+					<div data-text="{{test}}"></div>
+				</div>
+			</div>
 		</div>
 		<div role="tree">
 			<ul data-directive="template:{name: tree-node, foreach: trees->child}"></ul>

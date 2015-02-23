@@ -2,92 +2,65 @@
  * 실제 HTML DOM과 연결되어 엘리먼트나 폼 필드의 컨트롤 혹은 렌더링 등을 담당합니다.
  * @type {*} Ha.View
  */
-Ha.View = Ha.inherit(Ha.Object, function View(name, ctrl) {
-	this.base();
+Ha.View = Ha.inherit(Ha.Object, function View(element) {this.base();
+	var this_ = this,
+		el_ = element;
 
-	var thisArg = this;
-
-	this.name = name;
-
-	// 뷰를 가르키는 최상위 HTML 엘리먼트입니다.
-	var entryElement = document.querySelector('[data-view="' + this.name + '"]');
-
-	if (!entryElement) {
-		throw 'View \'' + this.name + '\' is not exist.\nPlease check the view name.';
-	}
-
-	var controller = ctrl;
-
-	function elementEventCallback(eventFuncName, element) {
+	/**
+	 * 요소로부터 발생하는 이벤트를 뷰 이벤트로 발생시킵니다.
+	 * @param eventType 이벤트 타입
+	 * @param eventName 이벤트 이름
+	 * @param element 이벤트 발생 요소
+	 * @returns {Function} 이벤트 발생 시 실행될 핸들러
+	 */
+	function elementEventCallback(eventType, eventName, element) {
 		return function(e) {
-			var parameters = [e, controller.entity, controller];
-
-			controller[eventFuncName].apply(element, parameters);
+			this_.trigger('elementEvent', {'event': e, 'eventType': eventType, 'eventName': eventName, 'element': element});
 		};
 	}
 
 	/**
-	 * 이벤트를 관찰합니다.
-	 * @param element
+	 * 요소들의 이벤트를 감시합니다.
 	 */
-	function watchEvents(element) {
-		var eventElements = element.querySelectorAll('[data-event]');
+	(function watchEvents() {
+		Array.prototype.forEach.call(el_.querySelectorAll('[data-event]'), function(el) {
+			var events = Ha.Json.toObject(el.getAttribute('data-event'));
 
-		Array.prototype.forEach.call(eventElements, function(element) {
-			var dataEventAttr = element.getAttribute('data-event').replace(/[a-z|A-Z|0-9|-]+/g, '"$&"');
+			for (var eventType in events) {
+				if (!events.hasOwnProperty(eventType)) continue;
 
-			dataEventAttr = '{' + dataEventAttr + '}';
-
-			var dataEventObject = JSON.parse(dataEventAttr);
-
-			for (var eventType in dataEventObject) {
-				if (!dataEventObject.hasOwnProperty(eventType)) continue;
-
-				var eventFuncName = dataEventObject[eventType];
-
-				var eventFunc = controller[eventFuncName];
-
-				if (!eventFunc || typeof eventFunc !== 'function') return;
-
-				element.addEventListener(eventType, elementEventCallback(eventFuncName, element), false);
+				// 요소로부터 발생하는 이벤트를 감지합니다.
+				el.addEventListener(eventType, elementEventCallback(eventType, events[eventType], el), false);
 			}
 		});
-	}
-
-	watchEvents(entryElement);
+	})();
 
 	/**
-	 * 폼 필드로부터 엔티티 프로퍼티를 연결합니다.
+	 * 폼 필드들의 이벤트를 감시합니다.
 	 */
 	(function watchFormFields() {
-		var inputFields = entryElement.querySelectorAll('input');
-
-		Array.prototype.forEach.call(inputFields, function(inputField) {
-			switch (inputField.type) {
+		Array.prototype.forEach.call(el_.querySelectorAll('input'), function(input) { // Input
+			switch (input.type) {
 				case 'text':
-					inputField.addEventListener('input', function() {
-						controller.entity.set(inputField.name, inputField.value);
+					input.addEventListener('input', function() {
+						this_.trigger('fieldValueChanged', {'name': input.name, 'value': input.value});
 					});
 
 					break;
 
 				case 'radio':
-					inputField.addEventListener('click', function() {
-						controller.entity.set(inputField.name, inputField.value);
+					input.addEventListener('click', function() {
+						this_.trigger('fieldValueChanged', {'name': input.name, 'value': input.value});
 					});
 
 					break;
 
 				case 'checkbox':
-					inputField.addEventListener('click', function() {
-						if (!controller.entity.instanceOf(inputField.name, Array)) {
-							controller.entity.push(inputField.name, []);
-						}
-
-						if (inputField.checked) {
-							controller.entity.push(inputField.name, inputField.value);
+					input.addEventListener('click', function() {
+						if (input.checked) {
+							this_.trigger('fieldValuePushed', {'name': input.name, 'value': input.value});
 						} else {
-							controller.entity.splice(inputField.name, inputField.value);
+							this_.trigger('fieldValueSpliced', {'name': input.name, 'value': input.value});
 						}
 					});
 
@@ -95,252 +68,313 @@ Ha.View = Ha.inherit(Ha.Object, function View(name, ctrl) {
 			}
 		});
 
-		var selectFields = entryElement.querySelectorAll('select');
-
-		Array.prototype.forEach.call(selectFields, function(selectField) {
-			selectField.addEventListener('input', function () {
-				controller.entity.set(selectField.name, selectField.value);
+		Array.prototype.forEach.call(el_.querySelectorAll('select'), function(select) { // Select
+			select.addEventListener('input', function () {
+				this_.trigger('fieldValueChanged', {'name': select.name, 'value': select.value});
 			});
 		});
 
-		var textAreaFields = entryElement.querySelectorAll('textarea');
-
-		Array.prototype.forEach.call(textAreaFields, function(textareaField) {
-			textareaField.addEventListener('input', function() {
-				controller.entity.set(textareaField.name, textareaField.value);
+		Array.prototype.forEach.call(el_.querySelectorAll('textarea'), function(textarea) { // Textarea
+			textarea.addEventListener('input', function() {
+				this_.trigger('fieldValueChanged', {'name': textarea.name, 'value': textarea.value});
 			});
 		});
 	})();
 
 	/**
-	 * 텍스트 엘리먼트를 엔티티에 맞게 렌더링합니다.
-	 * @param element 텍스트 렌더링의 대상이 되는 최상위 엘리먼트
-	 * @param key 엔티티 프로퍼티 키
+	 * 루프의 템플릿 맵입니다.
+	 * @type {Map} Ha.Map
 	 */
-	function renderTextElements(element, key) {
-		var textElements = element.querySelectorAll('[data-text*="{{' + key + '}}"]');
+	var loopsMap_ = new Ha.Map();
+	var LoopTemplateIdPrefix_ = 'loop_';
+	var LoopTemplateIdSuffix_ = '_template';
 
-		Array.prototype.forEach.call(textElements, function (element) {
-			var dataTextAttr = element.getAttribute('data-text');
+	(function checkLoops() {
+		var loops = el_.querySelectorAll('[data-loop]');
 
-			element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-				if (!controller.entity.has(substring)) return;
+		for (var index = loops.length - 1; index >= 0; index--) {
+			var el = loops.item(index);
 
-				return controller.entity.get(substring);
-			});
-		});
-	}
+			var tId = LoopTemplateIdPrefix_ + el.getAttribute('data-loop') + LoopTemplateIdSuffix_;
+			var tEl = document.createElement('div');
 
-	/**
-	 * Directive 목록과 처리 핸들러입니다.
-	 */
-	var directives = {
-		'if': function(element, key) {
-			element.style.display = controller.entity.get(key) ? 'block' : 'none';
-		},
-		'ifnot': function(element, key) {
-			element.style.display = controller.entity.get(key) ? 'none' : 'block';
-		},
-		'style': function(element, style) {
-			for (var styleName in style) {
-				if (!style.hasOwnProperty(styleName)) continue;
+			tEl.innerHTML = el.innerHTML;
 
-				var propName = style[styleName];
+			loopsMap_.set(tId, tEl);
 
-				element.style[styleName] = controller.entity.get(propName);
-			}
-		},
-		'css': function(element, css) {
-			if (!(css instanceof Array)) {
-				css = [css];
-			}
-
-			css.forEach(function(item) {
-				if (!element.classList.contains(item)) {
-					element.classList.add(item);
-				}
-			});
-		},
-		'attr': function(element, attrs) {
-			for (var name in attrs) {
-				if (!attrs.hasOwnProperty(name)) continue;
-
-				var propName = attrs[name];
-
-				element.setAttribute(name, controller.entity.get(propName));
-			}
-		},
-		'html': function(element, name) {
-			element.innerHTML = controller.entity.get(name);
-		},
-		'foreach': function(element, key) {
-			var propName = key;
-			var subName = '';
-
-			if (propName.indexOf('->')) {
-				subName = propName.slice(propName.indexOf('->') + 2);
-				propName = propName.substring(0, propName.indexOf('->'));
-			}
-
-			var templateId = propName + '_template';
-			var scriptElement = document.getElementById(templateId);
-
-			if (!scriptElement) {
-				scriptElement = document.createElement('script');
-
-				scriptElement.setAttribute('id', templateId);
-				scriptElement.setAttribute('type', 'text/html');
-
-				scriptElement.innerHTML = element.innerHTML.trim();
-
-				document.head.appendChild(scriptElement);
-			}
-
-			element.innerHTML = null;
-
-			var property = controller.entity.get(propName);
-
-			property = property instanceof Array ? property : [property];
-
-			property.forEach(function(item) {
-				element.innerHTML += renderForeachDirective(item, scriptElement.innerHTML, subName);
-
-				watchEvents(element);
-
-				for (var index = 0; index < element.children.length; index++) {
-					var child = element.children[index];
-
-					for (var prop in item) {
-						renderDirectiveElements(child, item, prop);
-					}
-				}
-			});
-		},
-		'template': function(element, template, obj) {
-			if (!template || !template.name || !template.foreach) return;
-
-			var templateHtml = document.getElementById(template.name);
-
-			if (templateHtml.children.length != 1) return;
-
-			if (template.foreach.indexOf('->')) {
-				subName = template.foreach.slice(template.foreach.indexOf('->') + 2);
-				propName = template.foreach.substring(0, template.foreach.indexOf('->'));
-			}
-
-			var property;
-
-			if (!obj) property = controller.entity.get(propName);
-			else property = obj[propName];
-
-			property.forEach(function(item) {
-				var cloneElement = templateHtml[0].cloneNode(true);
-
-				for (var p in item) {
-					renderTextElements(cloneElement, subName + '.' + p);
-				}
-			});
-
-			element.appendChild();
-
-
-
-			console.log(templateHtml);
+			el.innerHTML = null;
 		}
-	};
+	})();
 
 	/**
-	 * 디렉티브 엘리먼트를 엔티티에 맞게 렌더링합니다.
-	 * @param element 디렉티브 렌더링의 대상이 되는 최상위 엘리먼트
-	 * @param key 엔티티 프로퍼티 키
+	 * 뷰의 지시자 맵입니다.
+	 * @type {Map} Ha.Map
 	 */
-	function renderDirectiveElements(element, key) {
-		var directiveElements = element.querySelectorAll('[data-directive*="' + key + '"]');
+	var directivesMap_ = new Ha.Map(true);
 
-		Array.prototype.forEach.call(directiveElements, function (element) {
-			var directiveObject = Ha.Json.toObject(element.getAttribute('data-directive'));
+	/**
+	 * 뷰 내의 지시자들을 점검합니다. 유효한 지시자들은 맵에 담습니다.
+	 */
+	(function checkDirectives() {
+		Array.prototype.forEach.call(el_.querySelectorAll('[data-directive]'), function(dEl) {
+			var directives = Ha.Json.toObject(dEl.getAttribute('data-directive'));
 
-			for (var directiveType in directiveObject) {
-				if (!directiveObject.hasOwnProperty(directiveType)) continue;
-
-				var directiveBody = directiveObject[directiveType];
-
+			for (var directiveType in directives) {
 				if (!directives.hasOwnProperty(directiveType)) continue;
 
-				directives[directiveType].call(thisArg, element, directiveBody);
+				var directive = directives[directiveType];
+
+				switch (directiveType) {
+					case 'if':
+					case 'ifnot':
+					case 'css':
+					case 'html': // Variable(Or Function)
+						directivesMap_.set(directive, {'el': dEl, 'type': directiveType});
+
+						break;
+
+					case 'style':
+					case 'attr': // Object(with Nested Function)
+						for (var propName in directive) {
+							if (!directive.hasOwnProperty(propName)) continue;
+
+							directivesMap_.set(directive[propName], {'el': dEl, 'type': directiveType, 'prop': propName});
+						}
+
+						break;
+				}
 			}
 		});
-	}
-
-	function renderForeachDirective(obj, html, subName) {
-		var tmpEl = document.createElement('div');
-
-		tmpEl.innerHTML = html;
-
-		var elements = tmpEl.querySelectorAll('[data-text]');
-
-		for (var index = 0; index < elements.length; index++) {
-			var element = elements.item(index);
-
-			var dataTextAttr = element.getAttribute('data-text');
-
-			element.textContent = dataTextAttr.replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
-				if (substring.indexOf(subName + '.') === 0) {
-					var propertyName = substring.slice(subName.length + 1);
-
-					if (obj.hasOwnProperty(propertyName)) {
-						return obj[propertyName];
-					}
-				}
-			});
-		}
-
-		return tmpEl.innerHTML;
-	}
+	})();
 
 	/**
-	 * 엔티티에서 변경된 값을 폼 필드에 반영합니다.
-	 * @param key 엔티티 프로퍼티 키
+	 * 폼 필드에 값을 설정합니다.
+	 * 이 메서드는 컨트롤러가 엔티티 프로퍼티 값의 변화를 감지했을 때 실행됩니다.
+	 * @param name 프로퍼티명(동시에 폼 필드의 이름)
+	 * @param value 폼 필드 값
 	 */
-	function changeFieldValue(key) {
-		var formFields = entryElement.querySelectorAll('[name="' + key + '"]');
-
-		Array.prototype.forEach.call(formFields, function(formField) {
-			switch (formField.type) {
+	this.setFieldValue = function setFieldValue(name, value) {
+		Array.prototype.forEach.call(el_.querySelectorAll('[name="' + name + '"]'), function(field) {
+			switch (field.type) {
 				case 'radio':
-					if (formField.value === controller.entity.get(key)) {
-						formField.checked = true;
-					}
+					field.checked = field.value === value;
 
 					break;
 
 				case 'checkbox':
-					var values = controller.entity.get(key);
+					if (!(value instanceof Array)) {
+						value = [value];
+					}
 
-					if (!(values instanceof Array)) return;
-
-					formField.checked = values.some(function(item, index, array) {
-						return item.toString() === formField.value;
+					field.checked = value.some(function(item, index, array) {
+						return item.toString() === field.value;
 					});
 
 					break;
 
 				default :
-					formField.value = controller.entity.get(key);
+					field.value = value;
 
 					break;
 			}
 		});
-	}
+	};
 
 	/**
-	 * 엔티티의 속성 값이 변경됐을 때 발생합니다.
+	 * 뷰 내의 텍스트 영역을 렌더링합니다.
+	 * @param name 프로퍼티명
+	 * @param value 렌더링할 텍스트
 	 */
-	controller.entity.changed(function(e) {
-		e.detail.forEach(function(path) {
-			renderTextElements(entryElement, path);
-			renderDirectiveElements(entryElement, path);
-			changeFieldValue(path);
+	this.renderText = function renderText(name, value) {
+		Array.prototype.forEach.call(el_.querySelectorAll('[data-text*="{{' + name + '}}"]'), function (el) {
+			el.textContent = el.getAttribute('data-text').replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
+				if (name === substring) return value;
+			});
 		});
-	});
+	};
+
+	/**
+	 * 지시자에 대해서 렌더링합니다.
+	 * 지시자 별로 프로퍼티 값에 대한 사용법이 다릅니다.
+	 * @param name 프로퍼티명.
+	 * @param value 프로퍼티 값.
+	 */
+	this.renderForDirective = function renderForDirective(name, value) {
+		if (!directivesMap_.has(name)) return;
+
+		var directives = directivesMap_.get(name);
+
+		directives.forEach(function(directive) {
+			renderDirectiveItem(directive.type, directive.el, value, directive.prop);
+		});
+	};
+
+	function renderDirectiveItem(type, el, value, name) {
+		switch (type) {
+			case 'if':
+				el.style.display = value ? 'block' : 'none';
+
+				break;
+
+			case 'ifnot':
+				el.style.display = value ? 'none' : 'block';
+
+				break;
+
+			case 'style':
+				if (!el.style.hasOwnProperty(name)) return;
+
+				el.style[name] = value;
+
+				break;
+
+			case 'css':
+				// CSS 지시자에 대한 프로퍼티의 타입은 Array이며, 그렇지 않을 경우 Array로 캐스팅합니다.
+				if (!(value instanceof Array)) {
+					value = [value];
+				}
+
+				value.forEach(function(item) {
+					if (!el.classList.contains(item)) {
+						el.classList.add(item);
+					}
+				});
+
+				break;
+
+			case 'attr':
+				el.setAttribute(name, value);
+
+				break;
+
+			case 'html':
+				el.innerHTML = value;
+
+				break;
+		}
+	}
+
+	function renderLoopItem(item, name, templateEl) {
+		var tempEl = document.createElement('div');
+
+		tempEl.innerHTML = templateEl.innerHTML;
+
+		for (var propName in item) {
+			if (!item.hasOwnProperty(propName)) continue;
+
+			var textEls = tempEl.querySelectorAll('[data-text*="{{' + propName + '}}"]');
+
+			for (var index = 0; index < textEls.length; index++) {
+				var textEl = textEls.item(index);
+
+				textEl.textContent = textEl.getAttribute('data-text').replace(/\{\{([\s\S]+?)}}/g, function (matched, substring) {
+					if (propName === substring) return item[propName];
+				});
+			}
+		}
+
+		Array.prototype.forEach.call(tempEl.querySelectorAll('[data-directive]'), function(dEl) {
+			var directives = Ha.Json.toObject(dEl.getAttribute('data-directive'));
+
+			for (var type in directives) {
+				if (!directives.hasOwnProperty(type)) continue;
+
+				var directive = directives[type];
+
+				switch (type) {
+					case 'if':
+					case 'ifnot':
+					case 'css':
+					case 'html': // Variable(Or Function)
+						if (!item.hasOwnProperty(directive)) continue;
+
+						renderDirectiveItem(type, dEl, item[directive]);
+
+						break;
+
+					case 'style':
+					case 'attr': // Object(with Nested Function)
+						for (var propName in directive) {
+							if (!directive.hasOwnProperty(propName)) continue;
+
+							if (!item.hasOwnProperty(directive[propName])) continue;
+
+							renderDirectiveItem(type, dEl, item[directive[propName]], propName);
+						}
+
+						break;
+				}
+			}
+		});
+
+		return tempEl;
+	}
+
+	this.renderForLoop = function renderForLoop(name, value, lEl) {
+		Array.prototype.forEach.call((lEl ? lEl : document).querySelectorAll('[data-loop="' + name + '"]'), function(el) {
+			var tEl = loopsMap_.get(LoopTemplateIdPrefix_ + name + LoopTemplateIdSuffix_),
+				renderedEl, propName;
+
+			if (value instanceof Array) {
+				value.forEach(function(item) {
+					renderedEl = renderLoopItem.call(this_, item, name, tEl);
+
+					for (propName in item) {
+						if (!item.hasOwnProperty(propName)) continue;
+
+						this_.renderForLoop(propName, item[propName], renderedEl);
+					}
+
+					el.innerHTML += renderedEl.innerHTML;
+				});
+			} else {
+				renderedEl = renderLoopItem.call(this_, value, name, tEl);
+
+				for (propName in value) {
+					if (!value.hasOwnProperty(propName)) continue;
+
+					this_.renderForLoop(propName, value[propName], renderedEl);
+				}
+
+				el.innerHTML += renderedEl.innerHTML;
+			}
+		});
+	};
+
+	/**
+	 * Directive 목록과 처리 핸들러입니다.
+	 */
+	var directiveHandlers = {
+		'template': function(element, template, obj) {
+			//if (!template || !template.name || !template.foreach) return;
+			//
+			//var templateHtml = document.getElementById(template.name);
+			//
+			//if (templateHtml.children.length != 1) return;
+			//
+			//if (template.foreach.indexOf('->')) {
+			//	subName = template.foreach.slice(template.foreach.indexOf('->') + 2);
+			//	propName = template.foreach.substring(0, template.foreach.indexOf('->'));
+			//}
+			//
+			//var property;
+			//
+			//if (!obj) property = controller.entity.get(propName);
+			//else property = obj[propName];
+			//
+			//property.forEach(function(item) {
+			//	var cloneElement = templateHtml[0].cloneNode(true);
+			//
+			//	for (var p in item) {
+			//		renderText(cloneElement, subName + '.' + p);
+			//	}
+			//});
+			//
+			//element.appendChild();
+			//
+			//
+			//
+			//console.log(templateHtml);
+		}
+	};
 });

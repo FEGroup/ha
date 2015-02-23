@@ -3,9 +3,7 @@
  * 서버 측과 주고 받는 데이터를 정의하며, 뷰와도 연동되어 사용자와의 데이터 인터렉션 역할을 합니다.
  * @type {*} Ha.Entity
  */
-Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
-	this.base();
-
+Ha.Entity = Ha.inherit(Ha.Object, function Entity() {this.base();
 	var thisArg = this;
 
 	// Entity가 보유하는 스키마 정보에 대한 실제 데이터입니다.
@@ -27,10 +25,7 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 			if (change.object instanceof Array &&
 				change.name === 'length') continue;
 
-			var propPath = path !== undefined && !(change.object instanceof Array) ?
-				path + '.' + change.name : path === undefined ? change.name : path;
-
-			c.push(propPath);
+			c.push({'type': change.type, 'path': path, 'name': change.name, 'object': change.object});
 		}
 
 		return c;
@@ -93,6 +88,8 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 	observing(properties);
 
 	this.get = function(path) {
+		if (!path) return properties;
+
 		var names = path.split('.'),
 			obj = properties;
 
@@ -162,32 +159,27 @@ Ha.Entity = Ha.inherit(Ha.Object, function Entity() {
 			obj = properties,
 			pathPart = '';
 
-		for (var index = 0; index < names.length; index++) {
+		for (var index = 0; index < names.length - 1; index++) {
 			var name = names[index];
 
 			pathPart = pathPart === '' ? name : pathPart + '.' + name;
 
 			if (obj[name]) {
 				obj = obj[name];
-			} else if(index == names.length - 1) {
-				obj = obj[name] = [];
-				observing(obj, pathPart);
 			} else {
 				obj = obj[name] = {};
 				observing(obj, pathPart);
 			}
 		}
 
-		if (obj instanceof Array) {
+		if (obj[names[names.length - 1]]) {
 			if (value instanceof Array) {
-				value.forEach(function(item) {
-					obj.push(item);
-				});
+				obj[names[names.length - 1]] = Ha.unique(obj[names[names.length - 1]].concat(value));
 			} else {
-				obj.push(value);
+				obj[names[names.length - 1]].push(value);
 			}
 		} else {
-			return false;
+			obj[names[names.length - 1]] = value instanceof Array ? value : [value];
 		}
 	};
 

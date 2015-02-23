@@ -85,5 +85,29 @@
 		return child;
 	};
 
+	/**
+	 * 파라메터가 숫자인지 판단합니다.
+	 * @param n 검사할 숫자 대상.
+	 * @returns {boolean} true면 숫자.
+	 */
+	Ha.isNumber = function isNumber(n) {
+		return !isNaN(parseFloat(n)) && isFinite(n);
+	};
+
+	Ha.unique = function unique(a) {
+		var na = [],
+			l = a.length;
+
+		for (var i = 0; i < l; i++) {
+			for (var j = i + 1; j < l; j++) {
+				if (a[i] === a[j]) j = ++i;
+			}
+
+			na.push(a[i]);
+		}
+
+		return na;
+	};
+
 	return Ha;
 }));

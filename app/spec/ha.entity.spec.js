@@ -57,13 +57,13 @@ describe('There is a property as an array. ', function() {
 		expect(entity.indexOf('a.b', 3)).toEqual(2);
 	});
 
-	it('If a value is pushed into the object property, return false.', function() {
-		var entity = new Ha.Entity();
-
-		entity.set('a.b', {});
-
-		expect(entity.push('a.b', 1)).toEqual(false);
-	});
+	//it('If a value is pushed into the object property, return false.', function() {
+	//	var entity = new Ha.Entity();
+	//
+	//	entity.set('a.b', {});
+	//
+	//	expect(entity.push('a.b', 1)).toEqual(false);
+	//});
 
 	it('If the array property spliced for some value, that value removed.', function() {
 		var entity = new Ha.Entity();

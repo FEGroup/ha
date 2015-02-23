@@ -2,9 +2,7 @@
  * Ha에서 다른 클래스들의 기본 클래스 역할을 합니다.
  * @type {*} Ha.Object
  */
-Ha.Object = Ha.inherit(Object, function () {
-	this.base();
-
+Ha.Object = Ha.inherit(Object, function () {this.base();
 	var events = {};
 
 	/**
@@ -34,7 +32,7 @@ Ha.Object = Ha.inherit(Object, function () {
 	/**
 	 * 이벤트를 발생시킵니다.
 	 * @param name 이벤트 타입
-	 * @param args 핸들러로 전달되는 인자
+	 * @param detail 핸들러로 전달되는 인자
 	 */
 	this.trigger = function (name, detail) {
 		if (!events.hasOwnProperty(name)) return;
